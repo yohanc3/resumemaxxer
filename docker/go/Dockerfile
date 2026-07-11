@@ -16,7 +16,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build \
 
 FROM gcr.io/distroless/static-debian12
 
-COPY --from=builder /bin/app /app
+COPY --from=builder --chmod=755 /bin/app /app
+COPY --from=builder /app/cmd/dbsetup/migration_files /migration_files
 
 ENTRYPOINT ["/app"]
 
