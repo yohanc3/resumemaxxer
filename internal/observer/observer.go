@@ -3,13 +3,14 @@ package observer
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 )
 
 type Observer struct {
-	Interval time.Time
+	Interval time.Duration
 	URL      string
 }
 
@@ -25,18 +26,17 @@ type Listing struct {
 	Locations   []string `json:"locations"`
 	Sponsorship string   `json:"sponsorship"`
 	IsVisible   bool     `json:"is_visible"`
-	Degrees     string   `json:"degrees"`
+	Degrees     []string `json:"degrees"`
 }
 
 // Fetches all listings and returns them
-func (o *Observer) fetchListings(ctx context.Context) ([]Listing, error) {
+func (o *Observer) FetchListings(ctx context.Context) ([]Listing, error) {
 	url := o.URL
 
 	res, err := http.Get(url)
 
 	if err != nil {
-		slog.Error("error: "+err.Error(), slog.String("url fetched", url))
-		return nil, err
+		return nil, fmt.Errorf("error when fetching listings with url: %v. error: %w", o.URL, err)
 	}
 
 	defer res.Body.Close()
@@ -56,11 +56,11 @@ func (o *Observer) fetchListings(ctx context.Context) ([]Listing, error) {
 }
 
 // Pushes lisitngs into job queue (SQLite)
-func (o *Observer) pushJobsFromListings(listings []Listing) error {
+func (o *Observer) PushJobsFromListings(listings []Listing) error {
 	return nil
 }
 
 // Pushes listings into database (PostgreSQL)
-func (o *Observer) saveListings(listings []Listing) error {
+func (o *Observer) SaveListings(listings []Listing) error {
 	return nil
 }
