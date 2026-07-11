@@ -1,4 +1,4 @@
-package main 
+package main
 
 import (
 	"fmt"
@@ -6,9 +6,9 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 
-	_ "github.com/lib/pq"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file" // Enables file:// driver
+	_ "github.com/lib/pq"
 
 	"github.com/yohanc3/resumemaxxer/internal/config"
 	"github.com/yohanc3/resumemaxxer/internal/storage/db"
@@ -19,10 +19,10 @@ func main() {
 	loadEnvConfig()
 	validateDBConnection()
 	applyMigrations()
-	fmt.Println("DB valid with mirgations")
+	fmt.Println("DB ready to be used.")
 }
 
-func applyMigrations(){
+func applyMigrations() {
 
 	dbConnectionString := db.GetDBURL(config.Cfg.DBUsername, config.Cfg.DBPassword, config.Cfg.DBDriver, config.Cfg.DBPort)
 
@@ -42,10 +42,9 @@ func applyMigrations(){
 		log.Println("Error during migration up: %v", err.Error())
 	}
 
-
 }
 
-func loadEnvConfig(){
+func loadEnvConfig() {
 	if err := config.LoadConfig(); err != nil {
 		log.Fatalf("Error when loading env vars. %v", err.Error())
 	}
@@ -53,7 +52,7 @@ func loadEnvConfig(){
 	log.Println("Success loading env vars.")
 }
 
-func validateDBConnection(){
+func validateDBConnection() {
 
 	dbConnection, err := db.GetDB(config.Cfg.DBUsername, config.Cfg.DBPassword, config.Cfg.DBDriver, config.Cfg.DBPort)
 	if err != nil {
