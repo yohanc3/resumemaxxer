@@ -1,7 +1,8 @@
 package main
 
 import (
-	"fmt"
+	"database/sql"
+	"errors"
 	"log"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -17,9 +18,16 @@ import (
 // validates DB connection and applies migrations
 func main() {
 	loadEnvConfig()
-	validateDBConnection()
+
+	dbConnection, err := db.GetDB(config.Cfg.DBUsername, config.Cfg.DBPassword, config.Cfg.DBDriver, config.Cfg.DBPort)
+	if err != nil {
+		log.Fatalf("Error when getting DB connection at db setup. %v", err.Error())
+	}
+
+	validateDBConnection(dbConnection)
 	applyMigrations()
-	fmt.Println("DB ready to be used.")
+
+	log.Println("DB ready to be used.")
 }
 
 func applyMigrations() {
@@ -36,11 +44,17 @@ func applyMigrations() {
 	}
 
 	if err := migration.Up(); err != nil {
+		
+		if errors.Is(err, migrate.ErrNoChange){
+			log.Println("No new migrations to apply. Schema is up to date.")
+			return
+		} 
 
-		// Don't stop execution while we don't have any migration files (which makes
-		// this always error out)
-		log.Println("Error during migration up: %v", err.Error())
+		log.Fatalf("Error during migration up: %v", err.Error())
+
 	}
+
+	log.Println("Succesfully ran migration up.")
 
 }
 
@@ -49,17 +63,14 @@ func loadEnvConfig() {
 		log.Fatalf("Error when loading env vars. %v", err.Error())
 	}
 
-	log.Println("Success loading env vars.")
+	log.Println("Succesfully loaded env vars.")
 }
 
-func validateDBConnection() {
-
-	dbConnection, err := db.GetDB(config.Cfg.DBUsername, config.Cfg.DBPassword, config.Cfg.DBDriver, config.Cfg.DBPort)
-	if err != nil {
-		log.Fatalf("Error when getting DB connection at db setup. %v", err.Error())
-	}
+func validateDBConnection(dbConnection *sql.DB) {
 
 	if err := dbConnection.Ping(); err != nil {
 		log.Fatalf("Error when pinging db at db setup. %v", err.Error())
+	} else {
+		log.Println("Succesfully pinged db at setup.")
 	}
 }
