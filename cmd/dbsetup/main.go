@@ -19,7 +19,7 @@ import (
 func main() {
 	loadEnvConfig()
 
-	dbConnection, err := db.GetDB(config.Cfg.DBUsername, config.Cfg.DBPassword, config.Cfg.DBDriver, config.Cfg.DBPort)
+	dbConnection, err := db.GetDB(config.Cfg.DBUsername, config.Cfg.DBPassword, config.Cfg.DBName, config.Cfg.DBPort)
 	if err != nil {
 		log.Fatalf("Error when getting DB connection at db setup. %v", err.Error())
 	}
@@ -32,7 +32,7 @@ func main() {
 
 func applyMigrations() {
 
-	dbConnectionString := db.GetDBURL(config.Cfg.DBUsername, config.Cfg.DBPassword, config.Cfg.DBDriver, config.Cfg.DBPort)
+	dbConnectionString := db.GetDBURL(config.Cfg.DBUsername, config.Cfg.DBPassword, config.Cfg.DBName, config.Cfg.DBPort)
 
 	migration, err := migrate.New(
 		"file://migration_files",
