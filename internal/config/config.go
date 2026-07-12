@@ -11,7 +11,7 @@ type Config struct {
 	DBPassword string `env:"DB_PASSWORD,required"`
 	DBUsername string `env:"DB_USERNAME,required"`
 	DBPort     string `env:"DB_DOCKER_PORT,required"`
-	DBDriver   string `env:"DB_DRIVER,required"`
+	DBName   string `env:"DB_NAME,required"`
 }
 
 func LoadConfig() error {

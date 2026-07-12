@@ -22,7 +22,7 @@ func GetDB(username, password, name, port string) (*sql.DB, error) {
 
 }
 
-func GetDBURL(username, password, name, port string) (string) {
+func GetDBURL(username, password, name, port string) string {
 
 	return fmt.Sprintf("postgres://%s:%s@db:%s/%s?sslmode=disable",
 		username, password, port, name)
