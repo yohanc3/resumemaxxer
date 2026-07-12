@@ -36,3 +36,11 @@ Succesfully created both files
 ## How to run migration up and down files
 
 Migrations are handled behind the scenes. See [cmd/dbsetup/main.go](main.go)
+
+## How to install migrate
+
+Run:
+
+``` sh
+$ curl -L https://github.com/golang-migrate/migrate/releases/download/$version/migrate.$os-$arch.tar.gz | tar xvz
+```

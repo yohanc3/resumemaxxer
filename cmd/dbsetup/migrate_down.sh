@@ -5,7 +5,8 @@
 set -a
 
 if [ -f ".env" ]; then
-    . ".env"
+    echo $(ls -la) >&2
+    . "./.env"
 
 else
     echo "Error: .env file not found in the parent directory." >&2
