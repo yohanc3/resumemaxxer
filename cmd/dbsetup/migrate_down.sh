@@ -5,7 +5,6 @@
 set -a
 
 if [ -f ".env" ]; then
-    echo $(ls -la) >&2
     . "./.env"
 
 else
@@ -20,7 +19,6 @@ migrate -database ${POSTGRES_URL} -path cmd/dbsetup/migration_files down
 
 if [ $? -eq 0 ]; then
     echo "Successfully reverse migrated."
-    echo $(psql -U $DB_USERNAME -d $DB_NAME -c "\dn")
 else
-    echo "Something went wrong. Exit code $"
+    echo "Something went wrong."
 fi
