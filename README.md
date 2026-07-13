@@ -58,3 +58,17 @@ So how does ResumeMaxxer avoid AI slop?
     - Are above 180 characters long (close to 2 full lines when compiled)
     - This is the only validation check as of now. More will be added later,
       after the MVP is out.
+
+
+## How to setup locally 
+
+1. To run the containers:
+
+```sh
+docker compose up 
+```
+
+2. To run [cmd/debug/migrate_down](cmd/debug/migrate_down):
+Install the migrate cli to migrate down. Steps [here](cmd/dbsetup/README.md)
+
+WIP
