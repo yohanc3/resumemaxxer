@@ -135,17 +135,17 @@ func (o *Observer) ProcessListings(ctx context.Context, db *sql.DB, listings []*
 				sponsorship = EXCLUDED.sponsorship,
 				degrees = EXCLUDED.degrees
 			
-			WHERE job_postings.active IS DISTINCT FROM EXCLUDED.active 
+			WHERE job_postings.active IS NOT FALSE 
 			OR job_postings.date_updated IS DISTINCT FROM EXCLUDED.date_updated
-			RETURNING id, url, company_name, active 
+			RETURNING id, url, company_name 
 		)
 
 		INSERT INTO resume_generation_queue (
-			job_posting_id, job_posting_url, job_posting_company_name, job_posting_is_active
+			job_posting_id, job_posting_url, job_posting_company_name 
 		)
-		SELECT id, url, company_name, active
-		FROM upserted_resources;
-
+		SELECT id, url, company_name 
+		FROM upserted_resources
+		;
 		`, strings.Join(valueStrings, ","))
 	
 	// Apply statement, and exclude the result.
