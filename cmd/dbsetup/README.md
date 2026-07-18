@@ -5,7 +5,7 @@
 Run: 
 
 ```sh
-$ cd cmd/dbsetup && create_migration_files.sh <file_name>
+$ cd cmd/dbsetup && sh create_migration_files.sh <file_name>
 ```
 
 The output will be something like:
