@@ -19,21 +19,21 @@ type Observer struct {
 }
 
 type Listing struct {
-	Title       string   `json:"title"`
-	URL         string   `json:"url"`
-	CompanyName string   `json:"company_name"`
-	CompanyURL  string   `json:"company_url"`
-	Source      string   `json:"source"`
-	Category    string   `json:"category"`
-	ID          string   `json:"id"`
-	Active      bool     `json:"active"`
-	Terms       []string `json:"terms"`
-	Locations   []string `json:"locations"`
-	Sponsorship string   `json:"sponsorship"`
-	IsVisible   bool     `json:"is_visible"`
-	Degrees     []string `json:"degrees"`
-	DateUpdated int      `json:"date_updated"`		
-	DatePosted  int	     `json:"date_posted"`
+	Title       string   	`json:"title"`
+	URL         string  	`json:"url"`
+	CompanyName string  	`json:"company_name"`
+	CompanyURL  string   	`json:"company_url"`
+	Source      string   	`json:"source"`
+	Category    string   	`json:"category"`
+	ID          string   	`json:"id"`
+	Active      bool        `json:"active"`
+	Terms       []string 	`json:"terms"`
+	Locations   []string 	`json:"locations"`
+	Sponsorship string   	`json:"sponsorship"`
+	IsVisible   bool     	`json:"is_visible"`
+	Degrees     []string 	`json:"degrees"`
+	DateUpdated time.Time	`json:"date_updated"`		
+	DatePosted	time.Time	`json:"date_posted"`
 }
 
 func (o *Observer) Watch(ctx context.Context) error {
@@ -70,7 +70,7 @@ func (o *Observer) FetchListings(ctx context.Context) ([]Listing, error) {
 // Pushes listings into job queue and into listings tables 
 func (o *Observer) ProcessListings(ctx context.Context, db *sql.DB, listings []*Listing) error {
 
-	// Sliughtly adapted from - https://stackoverflow.com/a/48070387
+	// Slightly adapted from - https://stackoverflow.com/a/48070387
 
 	// Holds list of values placeholders ($1, $2, $3 ...). 15 values per row.
     valueStrings := make([]string, 0, len(listings))
@@ -110,7 +110,7 @@ func (o *Observer) ProcessListings(ctx context.Context, db *sql.DB, listings []*
     }
 	
 	// Upserts into job_postings table, and inserts into the resume generation queue
-	// job_postings that either were inserted, or successfully edited (after id conflict).
+	// job postings that either were inserted, or successfully edited (after id conflict).
     stmt := fmt.Sprintf(`
 		WITH upserted_resources AS ( 
 			INSERT INTO job_postings (id, source, category, company_name, title,
