@@ -2,6 +2,8 @@ x-env: &shared-env
   env_file:
     - .env
 
+# docker/go/Dockerfile is a generic that compiles main.go at
+# cmd/<SERVICE> and executes it. 
 services:
   observer:
     build:
