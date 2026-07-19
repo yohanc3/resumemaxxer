@@ -1,6 +1,9 @@
-ResumeMaxxer creates tailored resumes and alerts you whenever a new job is posted on Simplify.
-You are notified through Telegram with a `Tailored PDF resume`, `Overleaf link to your tailored
-resume`, `Job posting info` such as: company, role, link to apply.
+ResumeMaxxer alerts you whenever a new job is posted on Simplify, and tailors your resume to the job description.
+
+You are notified through Telegram. Every alert includes:
+1. A tailored resume (PDF)
+2. Overleaf link to the tailored resume so you can edit it
+3. Job posting info such as: company, role, and the link to apply
 
 > [!IMPORTANT]
 > This project is still in development, without a stable version deployed.
@@ -8,67 +11,36 @@ resume`, `Job posting info` such as: company, role, link to apply.
 ## How to get started
 1. Ping the Telegram Bot by clicking here, or search "ResumeMaxxerBot" and type
 `/start`
-2. It will give you a unique link, where you will only input your name, email,
-   and resume. Click "Done" and exit the browser.
-3. The Bot will let you you're registered, and you will start getting alerts
+2. A unique link will be issued, so you can input your resume.
+3. The Bot will let you know you're registered, meaning you will start getting alerts
    from then on.
 
 ## Purpose
-Applying for jobs takes me a lot of time, given I have to:
+In my experience, tailoring resumes can take quite some time. ResumeMaxxer helps
+with: 
 
-1. Modify my resume to match the job description, so the ATS doesn't rank me lower if the keywords
-don't match.
-2. Constantly visiting Simplify's internship repo is a time sink as well.
+1. Tailoring resumes to job descriptions without hallucinating the user's experience/skills.
+ATS systems will rank applications not matching the keywords lower.
+2. Saving time visiting Simplify's internship repo, which can be a huge time sink.
 
-ResumeMaxxer aims to fix these pain points. It's easy to set up, and the generated resumes only
-modify as little as needed for your resume to 
+## How your resume is modified  
 
-This is a **huge** time sink.
+The LLM tailoring your resume is allowed to make only 3 types of modifications:
 
-ResumeMaxxer fixes this.
+1. Google's XYZ Formatting: Aligning text to the standard XYZ structure.
+2. Keyword Alignment: Adding explicit terms/skills found in the job description 
+    - **Example: "Kubernetes" where your resume may only have "K8s"**
+3. Cohesive Reshaping: Pivot framing of specific experiences to match the target role without lying
+    - **Example: "Setup Dockerfile to deploy app." -> "Containerized application environments to standardize production deployment pipelines."**
 
-## Jake's Template & NO fully AI generated resumes
-I don't like fully AI generated resumes, nor do employers.
-
-Do they work sometimes? Yes. Are they easy to spot, and looked upon? Also yes.
-
-So how does ResumeMaxxer avoid AI slop? 
-1. The harness instructs the LLM to follow Google's XYZ method as far as possible. Meaning,
-   if your bullet-points don't have metrics, then the LLM will not make them up. The harness
-   gives the LLM a few options when refactoring bullet-points:
-
-2. The harness gives the LLM a strict set of options when refactoring bullet-points:
-    - Format the bullet-point according to Google's XYZ method.
-    - Mention technologies or skills that already exist elsewhere on your resume (typically in your skills section)
-      when they're implied but omitted from a bullet point. This helps ensure important ATS keywords appear
-      in the experience that demonstrates them, without hallucinating technologies or accomplishments. For example,
-      if you have xDS in your resume, but the job description specifically mentions "Control Plane", we will add this.
-    - Reshape the cohesiveness of your bullet-points, so that it's way easier to 
-      spot the work you have done, and the work you are looking for. 
-        - Think of resumes with strong ML experiences, but if the role is SWE, you would not seem like a good match.
-          ResumeMaxxer fixes this by ensuring your ML experiences are a good match for SWE roles, without lying or hallucinating.
-    - Fix typos, etc.
-
-3. ResumeMaxxer uses Jake's Template. The LLM doesn't concern itself with this.
-   It is only in charge of the bullet-points. We construct and compile the LaTex into PDF.
-
-4. Static validation checks. There are validators that will reject
-   bullet-points if they:
-
-    - Are above 180 characters long (close to 2 full lines when compiled)
-    - This is the only validation check as of now. More will be added later,
-      after the MVP is out.
-
+A static check automatically rejects bullet points exceeding 180 characters (roughly 1.5 lines when compiled), triggering a retry automatically. This is the sole validator for the MVP.
 
 ## How to setup locally 
 
-1. To run the containers:
+1. Create a .env file, and fill it out using .env.example for guidance.
+
+2. Run the containers:
 
 ```sh
 docker compose up 
 ```
-
-2. To run [cmd/debug/migrate_down](cmd/debug/migrate_down):
-Install the migrate cli to migrate down. Steps [here](cmd/dbsetup/README.md)
-
-WIP
