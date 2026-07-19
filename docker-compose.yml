@@ -27,8 +27,6 @@ services:
     shm_size: 128mb
     volumes:
       - db:${DB_DATA}
-    ports:
-      - ${DB_HOST_PORT}:${DB_DOCKER_PORT}
     networks:
       - db
     !!merge <<: *shared-env
