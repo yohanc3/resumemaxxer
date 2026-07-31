@@ -25,7 +25,7 @@ func GetDB() (*sql.DB, error) {
 
 func GetDBURL() string {
 
-	return fmt.Sprintf("postgres://%s:%s@db:%s/%s?sslmode=disable",
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		config.Cfg.DBUsername, config.Cfg.DBPassword, config.Cfg.DBHost, config.Cfg.DBPort, config.Cfg.DBName)
 
 }
