@@ -48,7 +48,11 @@ func (o *Observer) Watch(ctx context.Context) error {
 			
 		case <-ticker.C:
 			if err := o.fetchAndUpdateListings(ctx); err != nil {
-				slog.Log(ctx, slog.LevelError, "error when upda")
+				slog.Log(ctx, slog.LevelError, "error when fetching or processed listings.",
+						 slog.String("error", err.Error()),
+						)
+			} else {
+				slog.Log(ctx, slog.LevelInfo, "successfully fetched and processed listings.")
 			}
 		}
 	}
