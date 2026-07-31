@@ -16,6 +16,7 @@ import (
 type Observer struct {
 	Interval time.Duration
 	URL      string
+	DB		 *sql.DB
 }
 
 type Listing struct {
@@ -38,11 +39,42 @@ type Listing struct {
 
 func (o *Observer) Watch(ctx context.Context) error {
 
+	ticker := time.NewTicker(o.Interval)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+			
+		case <-ticker.C:
+			if err := o.fetchAndUpdateListings(ctx); err != nil {
+				slog.Log(ctx, slog.LevelError, "error when upda")
+			}
+		}
+	}
+
+}
+
+
+// Fetches new listings, and process them by pushing new listings into job queue 
+// and listings table. Not the best naming convention, but didn't really have 
+// anything better in mind :p
+func (o *Observer) fetchAndUpdateListings(ctx context.Context) error {
+	
+	listings, err := o.fetchListings(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err = o.processListings(ctx, listings); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 // Fetches all listings and returns them
-func (o *Observer) FetchListings(ctx context.Context) ([]Listing, error) {
+func (o *Observer) fetchListings(ctx context.Context) ([]*Listing, error) {
 	url := o.URL
 
 	res, err := http.Get(url)
@@ -54,7 +86,7 @@ func (o *Observer) FetchListings(ctx context.Context) ([]Listing, error) {
 	defer res.Body.Close()
 
 	// Parse all listings and return them
-	var listings []Listing
+	var listings []*Listing
 
 	if err := json.NewDecoder(res.Body).Decode(&listings); err != nil {
 
@@ -67,8 +99,8 @@ func (o *Observer) FetchListings(ctx context.Context) ([]Listing, error) {
 	return listings, nil
 }
 
-// Pushes listings into job queue and into listings tables 
-func (o *Observer) ProcessListings(ctx context.Context, db *sql.DB, listings []*Listing) error {
+// Pushes listings into job queue and into listings table
+func (o *Observer) processListings(ctx context.Context, listings []*Listing) error {
 
 	// Slightly adapted from - https://stackoverflow.com/a/48070387
 
@@ -149,7 +181,7 @@ func (o *Observer) ProcessListings(ctx context.Context, db *sql.DB, listings []*
 		`, strings.Join(valueStrings, ","))
 	
 	// Apply statement, and exclude the result.
-    _, err := db.ExecContext(ctx, stmt, valueArgs...)
+    _, err := o.DB.ExecContext(ctx, stmt, valueArgs...)
 
 	if err != nil {
 		// Error out for now. Should notify dev later.

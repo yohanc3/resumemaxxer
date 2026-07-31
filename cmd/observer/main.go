@@ -1,53 +1,43 @@
-package main 
+package main
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
-	"flag"
+	"errors"
 
+	"github.com/yohanc3/resumemaxxer/internal/config"
 	"github.com/yohanc3/resumemaxxer/internal/observer"
-)
-
-var (
-	obs      *observer.Observer
+	"github.com/yohanc3/resumemaxxer/internal/storage/db"
 )
 
 func main() {
 	
-	fallbackURL := "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/refs/heads/dev/.github/scripts/listings.json"
+	config.LoadConfig()
 
-	url := flag.String("url", fallbackURL, "URL where listings will be fetched from")
-	interval := flag.Int("interval", 3, "Fetch interval in seconds")
+	obs := &observer.Observer{
+		Interval: time.Minute * 5,
+		URL:      "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/refs/heads/dev/.github/scripts/listings.json",
+	}
+	
+	// DB setup
+	db, err := db.GetDB()
+	if err != nil {
+		slog.Error("error when getting db", slog.String("error", err.Error()))
+		return
+	}
 
-	flag.Parse()
-
-	obs := &observer.Observer{Interval: time.Duration(*interval), URL: *url}
-
-	for {
-
-		fmt.Println("fetching...")
-
-		res, err := obs.FetchListings(context.TODO())
-
-		if err != nil {
-			panic(err.Error())
-		}
-		
-		content, err := json.Marshal(res)
-
-		if err != nil {
-			panic(err)
-		}
-
-		os.WriteFile("../../listings.json", content, 0644)
-		fmt.Printf("succesfully saved %d jobs\n", len(res))
-
-		fmt.Printf("sleeping %d seconds\n", int(*interval))
-		time.Sleep(time.Second * time.Duration(*interval))
-
+	obs.DB = db
+	
+	// Initializing observer
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	
+	if err := obs.Watch(ctx); err != nil && errors.Is(err, context.Canceled){
+		slog.Error("error when watching with observer", slog.String("error", err.Error()))
 	}
 
 }
