@@ -10,7 +10,8 @@ var Cfg Config
 type Config struct {
 	DBPassword string `env:"DB_PASSWORD,required"`
 	DBUsername string `env:"DB_USERNAME,required"`
-	DBPort     string `env:"DB_DOCKER_PORT,required"`
+	DBPort     string `env:"DB_PORT,required"`
+	DBHost     string `env:"DB_HOST,required"`
 	DBName   string `env:"DB_NAME,required"`
 }
 
