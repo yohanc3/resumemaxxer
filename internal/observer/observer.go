@@ -81,8 +81,13 @@ func (o *Observer) fetchAndUpdateListings(ctx context.Context) error {
 func (o *Observer) fetchListings(ctx context.Context) ([]*Listing, error) {
 	url := o.URL
 
-	res, err := http.Get(url)
+	// create and execute request
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error when constructing request with url: &v. error: %w", o.URL, err)
+	}
 
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error when fetching listings with url: %v. error: %w", o.URL, err)
 	}
