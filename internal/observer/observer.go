@@ -106,7 +106,9 @@ func (o *Observer) fetchListings(ctx context.Context) ([]*Listing, error) {
 		slog.Log(ctx,
 			slog.LevelError,
 			"error when decoding listings.json into listings object",
-			slog.String("error", err.Error()), slog.String("tracing help", "listings can be found at errored_listings.txt"))
+			slog.String("error", err.Error()),
+			slog.String("tracing help", "listings can be found at errored_listings.txt"),
+		)
 		return nil, fmt.Errorf("error when decoding listings.json into listings object. %w", err)
 	}
 
