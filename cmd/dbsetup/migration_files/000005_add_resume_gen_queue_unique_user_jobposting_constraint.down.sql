@@ -1,0 +1,2 @@
+ALTER TABLE resume_generation_queue
+DROP CONSTRAINT resume_gen_job_posting_id_key;
