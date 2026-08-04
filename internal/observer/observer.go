@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -33,8 +35,8 @@ type Listing struct {
 	Sponsorship string   	`json:"sponsorship"`
 	IsVisible   bool     	`json:"is_visible"`
 	Degrees     []string 	`json:"degrees"`
-	DateUpdated time.Time	`json:"date_updated"`		
-	DatePosted	time.Time	`json:"date_posted"`
+	DateUpdated int64   	`json:"date_updated"`		
+	DatePosted	int64		`json:"date_posted"`
 }
 
 func (o *Observer) Watch(ctx context.Context) error {
@@ -97,12 +99,15 @@ func (o *Observer) fetchListings(ctx context.Context) ([]*Listing, error) {
 	// Parse all listings and return them
 	var listings []*Listing
 
-	if err := json.NewDecoder(res.Body).Decode(&listings); err != nil {
+	bytes, err := io.ReadAll(res.Body)
 
+	if err := json.Unmarshal(bytes, &listings); err != nil {
+		os.WriteFile("../../errored_listings.txt", bytes, 0644)
 		slog.Log(ctx,
 			slog.LevelError,
 			"error when decoding listings.json into listings object",
-			slog.String("error", err.Error()))
+			slog.String("error", err.Error()), slog.String("tracing help", "listings can be found at errored_listings.txt"))
+		return nil, fmt.Errorf("error when decoding listings.json into listings object. %w", err)
 	}
 
 	return listings, nil
@@ -120,7 +125,7 @@ func (o *Observer) processListings(ctx context.Context, listings []*Listing) err
     valueArgs := make([]interface{}, 0, len(listings) * 15)
 
     i := 0
-    for _, listing := range listings {
+	for _, listing := range listings[:3] {
 
 		// For each listing, store a new set of value placeholders
 		// It allocates placeholder numbers based on the listing number
@@ -139,8 +144,8 @@ func (o *Observer) processListings(ctx context.Context, listings []*Listing) err
         valueArgs = append(valueArgs, listing.Title)
         valueArgs = append(valueArgs, listing.Active)
         valueArgs = append(valueArgs, pq.Array(listing.Terms))
-        valueArgs = append(valueArgs, listing.DateUpdated)
-        valueArgs = append(valueArgs, listing.DatePosted)
+        valueArgs = append(valueArgs, time.Unix(listing.DateUpdated, 0).UTC())
+        valueArgs = append(valueArgs, time.Unix(listing.DatePosted, 0).UTC())
         valueArgs = append(valueArgs, listing.URL)
         valueArgs = append(valueArgs, pq.Array(listing.Locations))
         valueArgs = append(valueArgs, listing.CompanyURL)
@@ -182,10 +187,12 @@ func (o *Observer) processListings(ctx context.Context, listings []*Listing) err
 		)
 
 		INSERT INTO resume_generation_queue (
-			job_posting_id, job_posting_url, job_posting_company_name 
+			job_posting_id, job_posting_url, company_name, user_id 
 		)
-		SELECT id, url, company_name 
+		SELECT id, url, company_name, 'testid' 
 		FROM upserted_resources
+		ON CONFLICT (job_posting_id)
+		DO NOTHING
 		;
 		`, strings.Join(valueStrings, ","))
 	
