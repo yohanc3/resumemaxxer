@@ -45,7 +45,7 @@ func main() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second * 10)
 	defer cancel()
 	
-	if err := obs.Watch(shutdownCtx); err != nil && errors.Is(err, context.Canceled){
+	if err := obs.Watch(shutdownCtx); err != nil {
 		slog.Error("error when watching with observer", slog.String("error", err.Error()))
 	}
 
