@@ -16,7 +16,10 @@ import (
 
 func main() {
 	
-	config.LoadConfig()
+	err := config.LoadConfig()
+	if err != nil {
+		panic("Cannot load env variables. Exiting observer...")
+	}
 
 	obs := &observer.Observer{
 		Interval: time.Second * 3,
