@@ -38,8 +38,14 @@ func main() {
 	// Initializing observer
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	<-ctx.Done()
+
+	// Gracefully shut down pending operations
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second * 10)
+	defer cancel()
 	
-	if err := obs.Watch(ctx); err != nil && errors.Is(err, context.Canceled){
+	if err := obs.Watch(shutdownCtx); err != nil && errors.Is(err, context.Canceled){
 		slog.Error("error when watching with observer", slog.String("error", err.Error()))
 	}
 
