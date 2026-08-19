@@ -72,6 +72,10 @@ func (o *Observer) fetchAndUpdateListings(ctx context.Context) error {
 		return err
 	}
 
+	if len(listings) == 0 {
+		return nil
+	}
+
 	if err = o.processListings(ctx, listings); err != nil {
 		return err
 	}
@@ -100,6 +104,9 @@ func (o *Observer) fetchListings(ctx context.Context) ([]*Listing, error) {
 	var listings []*Listing
 
 	bytes, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, fmt.Errorf("error when decoding response body. %w", err.Error())
+	}
 
 	if err := json.Unmarshal(bytes, &listings); err != nil {
 		os.WriteFile("../../errored_listings.txt", bytes, 0644)

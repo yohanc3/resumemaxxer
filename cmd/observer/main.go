@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"errors"
 
 	"github.com/yohanc3/resumemaxxer/internal/config"
 	"github.com/yohanc3/resumemaxxer/internal/observer"
