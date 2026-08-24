@@ -1,0 +1,19 @@
+done 1. create missing tables and relationships
+done 2. test it works
+
+3. create bot and auth registration pipeline 
+    a. create db auth table
+    b. create telegram bot with intake pipeline 
+    c. create resume parser
+
+4. create dispatcher (jobs per user per job type)
+
+5. create resume builder service
+
+6. create cf workflows handling (use cf workflows AI for inference)
+
+at some point we'll need telegram event-based alerts, r2 api, etc.
+
+we want to use cf workflows for only hitting resume builder, which will be a service
+that creates the resume, saves the metadata in db, saves file in R2, and returns a 
+200 if all occur correctly.
