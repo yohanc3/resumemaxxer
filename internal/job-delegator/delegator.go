@@ -133,6 +133,8 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 	j.wg.Wait()
 
+
+	slog.Log(ctx, slog.LevelInfo, fmt.Sprintf("successfully enqueued %v jobs: %+v", len(queueJobs), queueJobs))
 	return nil
 
 }
@@ -142,7 +144,7 @@ func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob
 	// else, mark it as not_processed
 	// if anything fails, just log the queue object and the error itself
 	if q.Retries >= 3 {
-		slog.Log(ctx, slog.LevelDebug, fmt.Sprintf("queue job retried 3+ times (%v). inserting into dead letter queue: %+v", q.Retries, q))
+		slog.Log(ctx, slog.LevelInfo, fmt.Sprintf("queue job retried 3+ times (%v). inserting into dead letter queue: %+v", q.Retries, q))
 
 		tx, err := j.db.BeginTx(ctx, nil)
 		if err != nil {
@@ -172,7 +174,7 @@ func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob
 			return
 		}
 	} else {
-		slog.Log(ctx, slog.LevelDebug, fmt.Sprintf("queue job retried %v times. retrying job... - q: %+v", q.Retries, q))
+		slog.Log(ctx, slog.LevelInfo, fmt.Sprintf("queue job retried %v times. retrying job... - q: %+v", q.Retries, q))
 		go func() {
 			// increment queue job retry counter and recursively call j.DelegateJobs(ctx, q[with retries += 1])
 			_, err := j.db.ExecContext(ctx, `
