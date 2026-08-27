@@ -156,12 +156,12 @@ func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob
 
 		tx.ExecContext(ctx, `
 			INSERT INTO resume_queue_jobs_dlq(
-				resume_queue_job_id, job_posting_id, user_id, retries, failed_at
+				resume_queue_job_id, job_posting_id, failed_at
 			)
-			VALUES($1, $2, $3, $4, $5, NOW());
+			VALUES($1, $2, NOW());
 			DELETE FROM resume_generation_queue WHERE id = $1;
 		`,
-			q.ID, q.JobPostingID, q.UserID, q.Retries, time.Now().Unix(),
+			q.ID, q.JobPostingID,
 		)
 
 		if err = tx.Commit(); err != nil {

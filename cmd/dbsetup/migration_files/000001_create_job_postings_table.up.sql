@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS job_postings(
-    id VARCHAR (40) PRIMARY KEY,
+    id TEXT PRIMARY KEY,
     source TEXT,
     category TEXT,
     company_name TEXT,
