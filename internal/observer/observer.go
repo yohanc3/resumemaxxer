@@ -42,6 +42,7 @@ type Listing struct {
 func (o *Observer) Watch(ctx context.Context) error {
 
 	ticker := time.NewTicker(o.Interval)
+	defer ticker.Stop()
 
 	for {
 		select {
@@ -90,10 +91,11 @@ func (o *Observer) fetchListings(ctx context.Context) ([]*Listing, error) {
 	// create and execute request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error when constructing request with url: &v. error: %w", o.URL, err)
+		return nil, fmt.Errorf("error when constructing request with url: %v. error: %w", o.URL, err)
 	}
 
-	res, err := http.DefaultClient.Do(req)
+	client := &http.Client{Timeout: 30 * time.Second}
+	res, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("error when fetching listings with url: %v. error: %w", o.URL, err)
 	}
@@ -105,7 +107,7 @@ func (o *Observer) fetchListings(ctx context.Context) ([]*Listing, error) {
 
 	bytes, err := io.ReadAll(res.Body)
 	if err != nil {
-		return nil, fmt.Errorf("error when decoding response body. %w", err.Error())
+		return nil, fmt.Errorf("error when decoding response body. %w", err)
 	}
 
 	if err := json.Unmarshal(bytes, &listings); err != nil {
@@ -200,7 +202,7 @@ func (o *Observer) processListings(ctx context.Context, listings []*Listing) err
 		)
 		SELECT id, url, company_name, 'testid' 
 		FROM upserted_resources
-		ON CONFLICT (job_posting_id)
+		ON CONFLICT (user_id, job_posting_id)
 		DO NOTHING
 		;
 		`, strings.Join(valueStrings, ","))

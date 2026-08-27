@@ -3,6 +3,8 @@ package resumebuilder
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"time"
 
 	"github.com/yohanc3/resumemaxxer/internal/storage/objectStorage"
 )
@@ -14,8 +16,8 @@ type QueueJob struct {
 	CompanyName  string
 	Retries      int
 	Status       string
-	CreatedAt    int64
-	FulfilledAt  int64
+	CreatedAt    time.Time 
+	FulfilledAt  sql.NullTime
 }
 
 type ResumeBuilder struct {
@@ -23,10 +25,10 @@ type ResumeBuilder struct {
 	storage objectstorage.ObjectStorage 
 }
 
-func NewResumeBuilder(sem chan struct{}, db *sql.DB, storage objectstorage.ObjectStorage) ResumeBuilder {
+func NewResumeBuilder(db *sql.DB, storage objectstorage.ObjectStorage) ResumeBuilder {
 	return ResumeBuilder{db: db, storage: storage}
 }
 
 func (r *ResumeBuilder) CreateResume(context context.Context, queuejob *QueueJob) error {
-	return nil
+	return errors.New("resume generation not implemented") 
 }

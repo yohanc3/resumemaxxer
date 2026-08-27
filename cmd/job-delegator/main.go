@@ -15,13 +15,12 @@ import (
 	objectstorage "github.com/yohanc3/resumemaxxer/internal/storage/objectStorage"
 )
 
-var SEMAPHORE_LENGTH = 3
-
-func main(){
+func main() {
 
 	err := config.LoadConfig()
 	if err != nil {
-		panic("Cannot load env variables. Exiting job-handler...")
+		slog.Error("Cannot load env variables. Exiting observer.", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
 	db, err := db.GetDB()
@@ -29,21 +28,18 @@ func main(){
 		slog.Error("error when getting db", slog.String("error", err.Error()))
 		return
 	}
+	defer db.Close()
 
-	storage := objectstorage.NewR2(config.Cfg.DBName, config.Cfg.DBPassword)
+	storage := objectstorage.NewR2(config.Cfg.R2BucketName, config.Cfg.R2AccessKeyID, config.Cfg.R2SecretAccessKey, config.Cfg.R2AccountID)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	
-	shutdownContext, cancel := context.WithTimeout(ctx, time.Second * 10) 
-	defer cancel()
-	
-	c := make(chan struct{}, SEMAPHORE_LENGTH)
-	resumebuilder := resumebuilder.NewResumeBuilder(c, db, storage)
 
-	jobDelegator := jobdelegator.NewJobDelegator(db, time.Second * 10, &resumebuilder)
+	resumebuilder := resumebuilder.NewResumeBuilder(db, storage)
 
-	if err := jobDelegator.Start(shutdownContext); err != nil {
+	jobDelegator := jobdelegator.NewJobDelegator(db, time.Second * time.Duration(config.Cfg.DelegatorIntervalSeconds), &resumebuilder)
+
+	if err := jobDelegator.Start(ctx); err != nil {
 		slog.Error("error when running job handler", slog.String("error", err.Error()))
 	}
 

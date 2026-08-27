@@ -17,7 +17,8 @@ func main() {
 	
 	err := config.LoadConfig()
 	if err != nil {
-		panic("Cannot load env variables. Exiting observer...")
+		slog.Error("Cannot load env variables. Exiting observer.", slog.String("error", err.Error()))
+		os.Exit(1)
 	}
 
 	obs := &observer.Observer{
@@ -31,20 +32,15 @@ func main() {
 		slog.Error("error when getting db", slog.String("error", err.Error()))
 		return
 	}
+	defer db.Close()
 
 	obs.DB = db
 	
 	// Initializing observer
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-
-	<-ctx.Done()
-
-	// Gracefully shut down pending operations
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second * 10)
-	defer cancel()
 	
-	if err := obs.Watch(shutdownCtx); err != nil {
+	if err := obs.Watch(ctx); err != nil {
 		slog.Error("error when watching with observer", slog.String("error", err.Error()))
 	}
 
