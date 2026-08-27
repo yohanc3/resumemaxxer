@@ -23,6 +23,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error when getting DB connection at db setup. %v", err.Error())
 	}
+	defer dbConnection.Close()
 
 	validateDBConnection(dbConnection)
 	applyMigrations()
