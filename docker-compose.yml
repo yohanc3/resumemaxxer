@@ -5,6 +5,12 @@ x-db-env: &x-db-env
     DB_HOST: db
     DB_PORT: 5432
 
+x-r2-env: &x-r2-env
+    R2_BUCKET_NAME: ${R2_BUCKET_NAME}
+    R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+    R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+    R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+
 # docker/go/Dockerfile is a generic that compiles main.go at
 # cmd/<SERVICE> and executes it. 
 services:
@@ -59,6 +65,21 @@ services:
         condition: service_healthy
     environment:
       <<: *x-db-env
+
+  job-delegator:
+    build:
+      context: .
+      dockerfile: docker/go/Dockerfile
+      args:
+        SERVICE: job-delegator
+    environment:
+      DELEGATOR_INTERVAL_SECONDS: ${DELEGATOR_INTERVAL_SECONDS}
+      <<: [*x-db-env, *x-r2-env]
+    depends_on:
+      db_setup:
+        condition: service_completed_successfully
+    networks:
+      - db
         
 networks:
   db:
