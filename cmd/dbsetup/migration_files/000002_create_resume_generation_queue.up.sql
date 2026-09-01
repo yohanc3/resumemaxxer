@@ -5,5 +5,6 @@ CREATE TABLE IF NOT EXISTS resume_generation_queue(
     company_name TEXT NOT NULL,
     retries INTEGER DEFAULT 0 NOT NULL, 
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
-    fulfilled_at TIMESTAMPTZ DEFAULT NULL
+    delivered_at TIMESTAMPTZ DEFAULT NULL,
+    fulfilled_at TIMESTAMPTZ DEFAULT NULL 
 );

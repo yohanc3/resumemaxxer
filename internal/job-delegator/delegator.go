@@ -63,7 +63,7 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 		WITH selected_jobs AS (
 			SELECT id	
 			FROM resume_generation_queue
-			WHERE status = 'queued'
+			WHERE status = 'enqueued'
 			ORDER BY created_at
 			LIMIT 3
 			FOR UPDATE SKIP LOCKED
@@ -154,15 +154,21 @@ func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob
 
 		defer tx.Rollback()
 
-		tx.ExecContext(ctx, `
+		_, err = tx.ExecContext(ctx, `
 			INSERT INTO resume_queue_jobs_dlq(
 				resume_queue_job_id, job_posting_id, failed_at
 			)
 			VALUES($1, $2, NOW());
-			DELETE FROM resume_generation_queue WHERE id = $1;
 		`,
 			q.ID, q.JobPostingID,
 		)
+		if err != nil {
+			slog.ErrorContext(ctx, "error when inserting into resume_queue_jobs_dlq.", 
+				slog.String("queue job: ", fmt.Sprintf("%+v", q)),
+				slog.String("error", err.Error()),
+			)
+			return
+		}
 
 		if err = tx.Commit(); err != nil {
 			slog.ErrorContext(ctx, fmt.Sprintf("error when committing transaction %v", err.Error()), slog.String("queue job", fmt.Sprintf("%+v", q)))
@@ -179,7 +185,7 @@ func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob
 			// increment queue job retry counter and recursively call j.DelegateJobs(ctx, q[with retries += 1])
 			_, err := j.db.ExecContext(ctx, `
 				UPDATE resume_generation_queue
-				SET retries = retries + 1, status = 'queued'
+				SET retries = retries + 1, status = 'enqueued'
 				WHERE id = $1
 			`, q.ID)
 			if err != nil {
