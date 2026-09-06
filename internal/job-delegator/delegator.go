@@ -69,7 +69,7 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 			FOR UPDATE SKIP LOCKED
 		)
 		UPDATE resume_generation_queue AS queue 
-		SET status = 'processing'	
+		SET status = 'processing_resume'	
 		FROM selected_jobs
 		WHERE queue.id = selected_jobs.id
 		RETURNING queue.id, queue.job_posting_id, queue.user_id, queue.company_name, 
@@ -122,7 +122,7 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 			err := j.resumeBuilder.CreateResume(ctx, q)
 			if err != nil {
-				j.OnJobError(ctx, q)
+				j.OnJobError(ctx, q, err)
 			}
 
 			// resumeBuilder.CreateResume should return the metadata so we can
@@ -139,7 +139,7 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 }
 
-func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob) {
+func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob, jobError error) {
 	// if job errored out >3 times, insert into dead letter queue and alert me
 	// else, mark it as not_processed
 	// if anything fails, just log the queue object and the error itself
@@ -156,11 +156,11 @@ func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob
 
 		_, err = tx.ExecContext(ctx, `
 			INSERT INTO resume_queue_jobs_dlq(
-				resume_queue_job_id, job_posting_id, failed_at
+				resume_queue_job_id, job_posting_id, failed_at, last_error
 			)
-			VALUES($1, $2, NOW());
+			VALUES($1, $2, NOW(), $3);
 		`,
-			q.ID, q.JobPostingID,
+			q.ID, q.JobPostingID, fmt.Errorf("job error: %w", jobError.Error()),
 		)
 		if err != nil {
 			slog.ErrorContext(ctx, "error when inserting into resume_queue_jobs_dlq.", 

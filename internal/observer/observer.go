@@ -13,35 +13,18 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	jobposting "github.com/yohanc3/resumemaxxer/internal/job_posting"
 )
 
 type Observer struct {
-	Interval time.Duration
-	URL      string
-	DB		 *sql.DB
-}
-
-type Listing struct {
-	Title       string   	`json:"title"`
-	URL         string  	`json:"url"`
-	CompanyName string  	`json:"company_name"`
-	CompanyURL  string   	`json:"company_url"`
-	Source      string   	`json:"source"`
-	Category    string   	`json:"category"`
-	ID          string   	`json:"id"`
-	Active      bool        `json:"active"`
-	Terms       []string 	`json:"terms"`
-	Locations   []string 	`json:"locations"`
-	Sponsorship string   	`json:"sponsorship"`
-	IsVisible   bool     	`json:"is_visible"`
-	Degrees     []string 	`json:"degrees"`
-	DateUpdated int64   	`json:"date_updated"`		
-	DatePosted	int64		`json:"date_posted"`
+	interval time.Duration
+	url      string
+	db		 *sql.DB
 }
 
 func (o *Observer) Watch(ctx context.Context) error {
 
-	ticker := time.NewTicker(o.Interval)
+	ticker := time.NewTicker(o.interval)
 	defer ticker.Stop()
 
 	for {
@@ -85,25 +68,25 @@ func (o *Observer) fetchAndUpdateListings(ctx context.Context) error {
 }
 
 // Fetches all listings and returns them
-func (o *Observer) fetchListings(ctx context.Context) ([]*Listing, error) {
-	url := o.URL
+func (o *Observer) fetchListings(ctx context.Context) ([]*jobposting.Listing, error) {
+	url := o.url
 
 	// create and execute request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error when constructing request with url: %v. error: %w", o.URL, err)
+		return nil, fmt.Errorf("error when constructing request with url: %v. error: %w", o.url, err)
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("error when fetching listings with url: %v. error: %w", o.URL, err)
+		return nil, fmt.Errorf("error when fetching listings with url: %v. error: %w", o.url, err)
 	}
 
 	defer res.Body.Close()
 
 	// Parse all listings and return them
-	var listings []*Listing
+	var listings []*jobposting.Listing
 
 	bytes, err := io.ReadAll(res.Body)
 	if err != nil {
@@ -125,7 +108,7 @@ func (o *Observer) fetchListings(ctx context.Context) ([]*Listing, error) {
 }
 
 // Pushes listings into job queue and into listings table
-func (o *Observer) processListings(ctx context.Context, listings []*Listing) error {
+func (o *Observer) processListings(ctx context.Context, listings []*jobposting.Listing) error {
 
 	// Slightly adapted from - https://stackoverflow.com/a/48070387
 
@@ -208,7 +191,7 @@ func (o *Observer) processListings(ctx context.Context, listings []*Listing) err
 		`, strings.Join(valueStrings, ","))
 	
 	// Apply statement, and exclude the result.
-    _, err := o.DB.ExecContext(ctx, stmt, valueArgs...)
+    _, err := o.db.ExecContext(ctx, stmt, valueArgs...)
 
 	if err != nil {
 		// Error out for now. Should notify dev later.
