@@ -12,8 +12,8 @@ import (
 	"syscall"
 	"time"
 
+ 	observer "github.com/yohanc3/resumemaxxer/internal/observer"
 	"github.com/lib/pq"
-	jobposting "github.com/yohanc3/resumemaxxer/internal/job_posting"
 )
 
 type JobDescriptionFetcher struct {
@@ -29,10 +29,8 @@ type MissingJobDescriptionURL struct {
 
 func (j *JobDescriptionFetcher) Start(ctx context.Context) error {
 
-	ctx, err := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
-	if err != nil {
-		return fmt.Errorf("error when starting notify context. %w", err)
-	}
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	ticker := time.NewTicker(time.Second * 5)
 
@@ -60,7 +58,7 @@ func (j *JobDescriptionFetcher) getMissingJobDescriptionsURLs(ctx context.Contex
 }
 
 // Pushes listings into job queue and into listings table
-func (j *JobDescriptionFetcher) pushResumeCreationJobs(ctx context.Context, listings []*jobposting.Listing) error {
+func (j *JobDescriptionFetcher) pushResumeCreationJobs(ctx context.Context, listings []*.Listing) error {
 
 	// Slightly adapted from - https://stackoverflow.com/a/48070387
 

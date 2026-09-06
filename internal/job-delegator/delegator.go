@@ -160,7 +160,7 @@ func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob
 			)
 			VALUES($1, $2, NOW(), $3);
 		`,
-			q.ID, q.JobPostingID, fmt.Errorf("job error: %w", jobError.Error()),
+			q.ID, q.JobPostingID, jobError.Error(),
 		)
 		if err != nil {
 			slog.ErrorContext(ctx, "error when inserting into resume_queue_jobs_dlq.", 
