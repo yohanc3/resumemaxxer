@@ -124,15 +124,18 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 			if err != nil {
 				j.OnJobError(ctx, q, err)
 			}
+	
+			j.db.ExecContext(ctx, `
+				UPDATE resume_generation_queue
+				SET status = 'completed_resume'
+				WHERE id = $1'
+				`, q.ID)
 
-			// resumeBuilder.CreateResume should return the metadata so we can
-			// push the completed job to a new queue. for now, it returns an error
 		}(q)
 
 	}
 
 	j.wg.Wait()
-
 
 	slog.Log(ctx, slog.LevelInfo, fmt.Sprintf("successfully enqueued %v jobs: %+v", len(queueJobs), queueJobs))
 	return nil

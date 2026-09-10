@@ -22,6 +22,10 @@ type Observer struct {
 	db		 *sql.DB
 }
 
+func NewObserver(interval time.Duration, url string, db *sql.DB) *Observer {
+	return &Observer{interval: interval, url: url, db: db}
+}
+
 func (o *Observer) Watch(ctx context.Context) error {
 
 	ticker := time.NewTicker(o.interval)

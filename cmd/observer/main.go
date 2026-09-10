@@ -21,10 +21,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	obs := &observer.Observer{
-		Interval: time.Second * 3,
-		URL:      "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/refs/heads/dev/.github/scripts/listings.json",
-	}
+	obs := &observer.NewObserver(
+			time.Second * 3,
+			URL:      "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/refs/heads/dev/.github/scripts/listings.json",
+		)
 	
 	// DB setup
 	db, err := db.GetDB()
