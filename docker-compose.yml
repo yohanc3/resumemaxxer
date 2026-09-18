@@ -58,6 +58,7 @@ services:
       dockerfile: docker/go/Dockerfile
       args:
         SERVICE: dbsetup
+      no_cache: true
     networks:
       - db
     depends_on:
@@ -80,6 +81,21 @@ services:
         condition: service_completed_successfully
     networks:
       - db
+
+  job-description-fetcher:
+    build:
+      context: .
+      dockerfile: docker/go-browser/Dockerfile
+      args:
+        SERVICE: job-description-fetcher
+    environment:
+      CHROME_BIN: /usr/bin/chromium
+      <<: *x-db-env
+    networks:
+      - db
+    depends_on:
+      db_setup:
+        condition: service_completed_successfully
         
 networks:
   db:
