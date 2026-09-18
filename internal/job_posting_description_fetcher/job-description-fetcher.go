@@ -7,24 +7,25 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
-	"strings"
 	"sync"
 	"syscall"
 	"time"
-
- 	observer "github.com/yohanc3/resumemaxxer/internal/observer"
-	"github.com/lib/pq"
 )
 
 type JobDescriptionFetcher struct {
-	db  *sql.DB
-	sem chan struct{}
-	wg  sync.WaitGroup
+	db      *sql.DB
+	sem     chan struct{}
+	wg      sync.WaitGroup
+	fetcher *Scraper
 }
 
 type MissingJobDescriptionURL struct {
 	url            string
-	job_posting_id string 
+	job_posting_id string
+}
+
+func NewJobDescriptionFetcher(db *sql.DB, SEMAPHORE_LENGTH int) *JobDescriptionFetcher {
+	return &JobDescriptionFetcher{db: db, sem: make(chan struct{}, SEMAPHORE_LENGTH), fetcher: NewScraper()}
 }
 
 func (j *JobDescriptionFetcher) Start(ctx context.Context) error {
@@ -49,105 +50,88 @@ func (j *JobDescriptionFetcher) Start(ctx context.Context) error {
 
 func (j *JobDescriptionFetcher) processMissingJobDescriptions(ctx context.Context) error {
 
+	missingJobDescriptions, err := j.getMissingJobDescriptionsURLs(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, m := range missingJobDescriptions {
+		go func() {
+			j.fetchJobDescription(ctx, m)
+		}()
+	}
+
 	return nil
 }
 
-func (j *JobDescriptionFetcher) getMissingJobDescriptionsURLs(ctx context.Context) ([]*string, error) {
+func (j *JobDescriptionFetcher) getMissingJobDescriptionsURLs(ctx context.Context) ([]*MissingJobDescriptionURL, error) {
 
-	return nil, nil
-}
-
-// Pushes listings into job queue and into listings table
-func (j *JobDescriptionFetcher) pushResumeCreationJobs(ctx context.Context, listings []*.Listing) error {
-
-	// Slightly adapted from - https://stackoverflow.com/a/48070387
-
-	// Holds list of values placeholders ($1, $2, $3 ...). 15 values per row.
-	valueStrings := make([]string, 0, len(listings))
-
-	// Holds list of arguments to be inserted in placeholders. 15 values per row.
-	valueArgs := make([]interface{}, 0, len(listings)*15)
-
-	i := 0
-	for _, listing := range listings[:3] {
-
-		// For each listing, store a new set of value placeholders
-		// It allocates placeholder numbers based on the listing number
-		// i.e., first iteration adds placeholders 1-15, second iteration 16-30, etc,
-		// so that the appended arguments match the correct listing
-		valueStrings = append(valueStrings, fmt.Sprintf(`
-		($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d,d $%d, $%d, $%d, $%d, $%d, $%d)
-		`, i*15+1, i*15+2, i*15+3, i*15+4, i*15+5, i*15+6, i*15+7, i*15+8, i*15+9, i*15+10, i*15+11, i*15+12, i*15+13, i*15+14, i*15+15))
-
-		// For each listing, store its 15 args. Add them in the same order than expected
-		// in the sql statement.
-		valueArgs = append(valueArgs, listing.ID)
-		valueArgs = append(valueArgs, listing.Source)
-		valueArgs = append(valueArgs, listing.Category)
-		valueArgs = append(valueArgs, listing.CompanyName)
-		valueArgs = append(valueArgs, listing.Title)
-		valueArgs = append(valueArgs, listing.Active)
-		valueArgs = append(valueArgs, pq.Array(listing.Terms))
-		valueArgs = append(valueArgs, time.Unix(listing.DateUpdated, 0).UTC())
-		valueArgs = append(valueArgs, time.Unix(listing.DatePosted, 0).UTC())
-		valueArgs = append(valueArgs, listing.URL)
-		valueArgs = append(valueArgs, pq.Array(listing.Locations))
-		valueArgs = append(valueArgs, listing.CompanyURL)
-		valueArgs = append(valueArgs, listing.IsVisible)
-		valueArgs = append(valueArgs, listing.Sponsorship)
-		valueArgs = append(valueArgs, pq.Array(listing.Degrees))
-		i++
+	tx, err := j.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error when beginning tx before fetching job descriptions")
 	}
 
-	// Upserts into job_postings table, and inserts into the resume generation queue
-	// job postings that either were inserted, or successfully edited (after id conflict).
-	stmt := fmt.Sprintf(`
-		WITH upserted_resources AS ( 
-			INSERT INTO job_postings (id, source, category, company_name, title,
-			active, terms, date_updated, date_posted, url, locations, company_url,
-			is_visible, sponsorship, degrees)
-			VALUES %s
+	defer tx.Rollback()
 
-			ON CONFLICT (id) 
-			DO UPDATE SET
-				source = EXCLUDED.source,
-				category = EXCLUDED.category,
-				company_name = EXCLUDED.company_name,
-				title = EXCLUDED.title,
-				active = EXCLUDED.active,
-				terms = EXCLUDED.terms,
-				date_updated = EXCLUDED.date_updated,
-				date_posted = EXCLUDED.date_posted,
-				url = EXCLUDED.url,
-				locations = EXCLUDED.locations,
-				company_url = EXCLUDED.company_url,
-				is_visible = EXCLUDED.is_visible,
-				sponsorship = EXCLUDED.sponsorship,
-				degrees = EXCLUDED.degrees
-			
-			WHERE job_postings.active IS NOT FALSE 
-			OR job_postings.date_updated IS DISTINCT FROM EXCLUDED.date_updated
-			RETURNING id, url, company_name 
-		)
-
-		INSERT INTO resume_generation_queue (
-			job_posting_id, job_posting_url, company_name, user_id 
-		)
-		SELECT id, url, company_name, 'testid' 
-		FROM upserted_resources
-		ON CONFLICT (user_id, job_posting_id)
-		DO NOTHING
-		;
-		`, strings.Join(valueStrings, ","))
-
-	// Apply statement, and exclude the result.
-	_, err := j.db.ExecContext(ctx, stmt, valueArgs...)
+	rows, err := tx.QueryContext(ctx, `
+			WITH descriptions_jobs AS (
+				SELECT j.url, q.id AS queue_id, q.job_posting_id
+				FROM job_description_fetch_queue AS q
+				JOIN job_postings AS j ON j.id = q.job_posting_id
+				WHERE q.status = 'enqueued'
+				ORDER BY q.created_at
+				LIMIT $1
+				FOR UPDATE OF q SKIP LOCKED
+			)
+			UPDATE job_description_fetch_queue AS q
+			SET status = 'processing'
+			FROM descriptions_jobs AS d
+			WHERE q.id = d.queue_id
+			RETURNING d.url, d.job_posting_id
+		`, cap(j.sem))
 
 	if err != nil {
-		// Error out for now. Should notify dev later.
-		return fmt.Errorf("error when inserting batch of jobs. %w", err)
+		return nil, fmt.Errorf("error when fetching job description queue jobs. %w", err)
 	}
 
-	return nil
+	var missingJobDescriptions []*MissingJobDescriptionURL
 
+	for rows.Next() {
+
+		missingJobDescription := &MissingJobDescriptionURL{}
+
+		if err := rows.Scan(&missingJobDescription.url, &missingJobDescription.job_posting_id); err != nil {
+			return nil, fmt.Errorf("error when parsing row: %w", err)
+		}
+
+		missingJobDescriptions = append(missingJobDescriptions, missingJobDescription)
+
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("error caught after scanning all rows: %w", err)
+	}
+
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close queue rows: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("commit queue jobs: %w", err)
+	}
+
+	return missingJobDescriptions, nil
+}
+
+func (j *JobDescriptionFetcher) fetchJobDescription(ctx context.Context, jobDescriptionURL *MissingJobDescriptionURL) error {
+	slog.Log(ctx, slog.LevelInfo, "fetching job description", slog.String("job data: ", fmt.Sprintf("%+v", jobDescriptionURL)))
+
+	bodyText, err := j.fetcher.GetPageText(ctx, jobDescriptionURL.url)
+	if err != nil {
+		return fmt.Errorf("error when fetching page text. error: %w", err)
+	}
+
+	slog.InfoContext(ctx, fmt.Sprintf("url body: \n %v", bodyText))
+
+	return nil
 }

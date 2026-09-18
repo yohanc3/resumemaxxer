@@ -15,6 +15,8 @@ import (
 	objectstorage "github.com/yohanc3/resumemaxxer/internal/storage/objectStorage"
 )
 
+var SEMAPHORE_LENGTH = 3
+
 func main() {
 
 	err := config.LoadConfig()
@@ -37,7 +39,7 @@ func main() {
 
 	resumebuilder := resumebuilder.NewResumeBuilder(db, storage)
 
-	jobDelegator := jobdelegator.NewJobDelegator(db, time.Second * time.Duration(config.Cfg.DelegatorIntervalSeconds), &resumebuilder)
+	jobDelegator := jobdelegator.NewJobDelegator(db, time.Second * time.Duration(config.Cfg.DelegatorIntervalSeconds), &resumebuilder, SEMAPHORE_LENGTH)
 
 	if err := jobDelegator.Start(ctx); err != nil {
 		slog.Error("error when running job handler", slog.String("error", err.Error()))

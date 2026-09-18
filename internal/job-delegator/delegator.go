@@ -11,8 +11,6 @@ import (
 	resumebuilder "github.com/yohanc3/resumemaxxer/internal/resume-builder"
 )
 
-var SEMAPHORE_LENGTH = 3
-
 type jobDelegator struct {
 	db            *sql.DB
 	interval      time.Duration
@@ -21,7 +19,7 @@ type jobDelegator struct {
 	sem           chan struct{}
 }
 
-func NewJobDelegator(db *sql.DB, interval time.Duration, resumeBuilder *resumebuilder.ResumeBuilder) *jobDelegator {
+func NewJobDelegator(db *sql.DB, interval time.Duration, resumeBuilder *resumebuilder.ResumeBuilder, SEMAPHORE_LENGTH int) *jobDelegator {
 	return &jobDelegator{
 		db:            db,
 		interval:      interval,
@@ -46,7 +44,6 @@ func (j *jobDelegator) Start(ctx context.Context) error {
 			}
 		}
 	}
-
 }
 
 func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
@@ -61,19 +58,20 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 	rows, err := tx.QueryContext(ctx, `
 		WITH selected_jobs AS (
-			SELECT id	
-			FROM resume_generation_queue
-			WHERE status = 'enqueued'
-			ORDER BY created_at
+			SELECT r.id
+			FROM resume_generation_queue AS r
+			JOIN job_postings j ON j.id = r.job_posting_id
+			WHERE r.status = 'enqueued' AND j.formatted_description IS NOT NULL
+			ORDER BY r.created_at
 			LIMIT 3
-			FOR UPDATE SKIP LOCKED
+			FOR UPDATE OF r SKIP LOCKED
 		)
-		UPDATE resume_generation_queue AS queue 
-		SET status = 'processing_resume'	
+		UPDATE resume_generation_queue AS queue_job 
+		SET status = 'processing_resume'
 		FROM selected_jobs
-		WHERE queue.id = selected_jobs.id
-		RETURNING queue.id, queue.job_posting_id, queue.user_id, queue.company_name, 
-				  queue.retries, queue.status, queue.created_at, queue.fulfilled_at;
+		WHERE queue_job.id = selected_jobs.id
+		RETURNING queue_job.id, queue_job.job_posting_id, queue_job.user_id, queue_job.company_name, 
+				  queue_job.retries, queue_job.status, queue_job.created_at, queue_job.fulfilled_at;
 	`)
 
 	if err != nil {
@@ -112,24 +110,18 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 	for _, q := range queueJobs {
 
-		// Trigger resume creation step
+		// Trigger rcreation step
 		j.sem <- struct{}{}
 		j.wg.Add(1)
 
 		go func(q *resumebuilder.QueueJob) {
+
+			// Queue up task through our semaphore
 			defer j.wg.Done()
 			defer func() { <-j.sem }()
 
-			err := j.resumeBuilder.CreateResume(ctx, q)
-			if err != nil {
-				j.OnJobError(ctx, q, err)
-			}
-	
-			j.db.ExecContext(ctx, `
-				UPDATE resume_generation_queue
-				SET status = 'completed_resume'
-				WHERE id = $1'
-				`, q.ID)
+			// HandleJob() owns task management (error handling, status update, etc.)
+			j.HandleJob(ctx, q)
 
 		}(q)
 
@@ -139,7 +131,19 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 	slog.Log(ctx, slog.LevelInfo, fmt.Sprintf("successfully enqueued %v jobs: %+v", len(queueJobs), queueJobs))
 	return nil
+}
 
+func (j *jobDelegator) HandleJob(ctx context.Context,q *resumebuilder.QueueJob) {
+
+	slog.Log(ctx, slog.LevelInfo, "handling job", slog.String("queue job data: ", fmt.Sprintf("%+v", q)))
+	switch q.Status {
+	case "processing_resume":
+		return
+		// 'completed_resume',
+		// 'delivering',
+		// 'delivered',
+		// 'failed')
+	}
 }
 
 func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob, jobError error) {
@@ -166,7 +170,7 @@ func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob
 			q.ID, q.JobPostingID, jobError.Error(),
 		)
 		if err != nil {
-			slog.ErrorContext(ctx, "error when inserting into resume_queue_jobs_dlq.", 
+			slog.ErrorContext(ctx, "error when inserting into resume_queue_jobs_dlq.",
 				slog.String("queue job: ", fmt.Sprintf("%+v", q)),
 				slog.String("error", err.Error()),
 			)
