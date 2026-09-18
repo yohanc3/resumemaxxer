@@ -63,8 +63,21 @@ func (o *Observer) fetchAndUpdateListings(ctx context.Context) error {
 	if len(listings) == 0 {
 		return nil
 	}
+	
+	fiveMinuesAgo := time.Now().Add(-48 * time.Hour)
 
-	if err = o.processListings(ctx, listings); err != nil {
+	var filtered []*jobposting.Listing
+	for _, l := range listings {
+
+		listingCreatedAt := time.Unix(l.DatePosted, 0)
+
+		if listingCreatedAt.After(fiveMinuesAgo) {
+			filtered = append(filtered, l)
+		}
+
+	}
+
+	if err = o.processListings(ctx, filtered); err != nil {
 		return err
 	}
 
@@ -114,6 +127,11 @@ func (o *Observer) fetchListings(ctx context.Context) ([]*jobposting.Listing, er
 // Pushes listings into job queue and into listings table
 func (o *Observer) processListings(ctx context.Context, listings []*jobposting.Listing) error {
 
+	if len(listings) == 0 {
+		slog.InfoContext(ctx, "Skipping process listings, no new listings...")
+		return nil
+	}
+
 	// Slightly adapted from - https://stackoverflow.com/a/48070387
 
 	// Holds list of values placeholders ($1, $2, $3 ...). 15 values per row.
@@ -123,7 +141,7 @@ func (o *Observer) processListings(ctx context.Context, listings []*jobposting.L
     valueArgs := make([]interface{}, 0, len(listings) * 15)
 
     i := 0
-	for _, listing := range listings[:3] {
+	for _, listing := range listings {
 
 		// For each listing, store a new set of value placeholders
 		// It allocates placeholder numbers based on the listing number
@@ -153,8 +171,9 @@ func (o *Observer) processListings(ctx context.Context, listings []*jobposting.L
         i++
     }
 	
-	// Upserts into job_postings table, and inserts into the resume generation queue
-	// job postings that either were inserted, or successfully edited (after id conflict).
+	// Upserts into job_postings table, inserts into the resume generation queue,
+	// and it also inserts into the job description queue for separate worker
+	// (aka job_description_fetcher) to fetch the job description
     stmt := fmt.Sprintf(`
 		WITH upserted_resources AS ( 
 			INSERT INTO job_postings (id, source, category, company_name, title,
@@ -182,16 +201,23 @@ func (o *Observer) processListings(ctx context.Context, listings []*jobposting.L
 			WHERE job_postings.active IS NOT FALSE 
 			OR job_postings.date_updated IS DISTINCT FROM EXCLUDED.date_updated
 			RETURNING id, url, company_name 
+		),
+
+		inserted_jobs AS (
+			INSERT INTO resume_generation_queue (
+				job_posting_id, job_posting_url, company_name, user_id 
+			)
+			SELECT id, url, company_name, 'testid' 
+			FROM upserted_resources
+			ON CONFLICT (user_id, job_posting_id)
+			DO NOTHING
+			RETURNING job_posting_id
 		)
 
-		INSERT INTO resume_generation_queue (
-			job_posting_id, job_posting_url, company_name, user_id 
-		)
-		SELECT id, url, company_name, 'testid' 
-		FROM upserted_resources
-		ON CONFLICT (user_id, job_posting_id)
-		DO NOTHING
-		;
+		INSERT INTO job_description_fetch_queue (job_posting_id, status)
+		SELECT job_posting_id, 'enqueued'
+		FROM inserted_jobs
+		ON CONFLICT (job_posting_id) DO NOTHING;
 		`, strings.Join(valueStrings, ","))
 	
 	// Apply statement, and exclude the result.

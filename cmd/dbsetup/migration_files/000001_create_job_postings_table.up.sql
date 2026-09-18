@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS job_postings(
-    id TEXT PRIMARY KEY,
+    id UUID PRIMARY KEY,
     source TEXT,
     category TEXT,
     company_name TEXT,

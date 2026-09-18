@@ -20,11 +20,6 @@ func main() {
 		slog.Error("Cannot load env variables. Exiting observer.", slog.String("error", err.Error()))
 		os.Exit(1)
 	}
-
-	obs := &observer.NewObserver(
-			time.Second * 3,
-			URL:      "https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/refs/heads/dev/.github/scripts/listings.json",
-		)
 	
 	// DB setup
 	db, err := db.GetDB()
@@ -34,7 +29,11 @@ func main() {
 	}
 	defer db.Close()
 
-	obs.DB = db
+	obs := observer.NewObserver(
+			time.Second * 3,
+			"https://raw.githubusercontent.com/SimplifyJobs/Summer2026-Internships/refs/heads/dev/.github/scripts/listings.json",
+			db,
+		)
 	
 	// Initializing observer
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
