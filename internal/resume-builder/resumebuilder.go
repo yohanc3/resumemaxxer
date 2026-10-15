@@ -28,9 +28,6 @@ func NewResumeBuilder(db *sql.DB, storage objectstorage.ObjectStorage) ResumeBui
 	return ResumeBuilder{db: db, storage: storage}
 }
 
-func (r *ResumeBuilder) CreateResume(ctx context.Context, queuejob *QueueJob, path string) error {
-
-	
-
-	return 
+func (r *ResumeBuilder) CreateResume(ctx context.Context, queuejob *QueueJob) error {
+	return errors.New("resume generation not implemented")
 }

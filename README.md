@@ -44,3 +44,74 @@ A static check automatically rejects bullet points exceeding 180 characters (rou
 ```sh
 docker compose up 
 ```
+
+## Send one Telegram text message
+
+This standalone command sends `Hello from ResumeMaxxer!` once. It requires Go
+(the Docker builds use Go 1.25), but no database or running containers.
+
+1. Create a bot with [@BotFather](https://t.me/BotFather) using `/newbot`, or use
+   the token for your existing bot. Keep the token private.
+2. Open a private chat with **your bot** and send `/start`.
+3. Load your token into your shell without putting it in shell history:
+
+   ```bash
+   read -r -s -p 'Telegram bot token: ' TELEGRAM_BOT_TOKEN
+   echo
+   export TELEGRAM_BOT_TOKEN
+   ```
+
+4. Run the following lookup yourself. It calls Telegram's `getUpdates` endpoint
+   and prints only private chat IDs and message text, never the token. It requires
+   Python 3 and uses the exported token:
+
+   ```bash
+   python3 - <<'PY'
+   import json
+   import os
+   import urllib.request
+
+   endpoint = "https://api.telegram.org/bot" + os.environ["TELEGRAM_BOT_TOKEN"] + "/getUpdates"
+   try:
+       with urllib.request.urlopen(endpoint, timeout=15) as response:
+           data = json.load(response)
+       if not data.get("ok"):
+           raise ValueError("Telegram API rejected the lookup")
+       for update in data.get("result", []):
+           message = update.get("message", {})
+           chat = message.get("chat", {})
+           if chat.get("type") == "private":
+               print("chat_id:", chat["id"], "text:", message.get("text", ""))
+   except Exception:
+       raise SystemExit("Chat ID lookup failed; check your token and network connection.")
+   PY
+   ```
+
+   Copy the `chat_id` associated with your `/start` message. If there are no
+   results, send `/start` again and repeat the lookup. Updates are retained for
+   at most 24 hours. `getUpdates` cannot be used while a webhook is configured;
+   another polling process can also consume the updates.
+   See the [Telegram Bot API documentation](https://core.telegram.org/bots/api#getupdates).
+
+5. Export that ID, then run the sender from the repository root:
+
+   ```bash
+   export TELEGRAM_CHAT_ID='123456789'
+   go run ./cmd/telegram-send
+   ```
+
+The Go command reads the process environment directly; it does **not**
+automatically load `.env`. Alternatively, add the two Telegram values to your
+local `.env` using shell-compatible assignments, then run this single command
+from the repository root in Bash:
+
+```bash
+(set -a; source ./.env; set +a; go run ./cmd/telegram-send)
+```
+
+`set -a` exports the variables loaded by `source`; parentheses keep them scoped
+to the subshell. Only source a trusted local file. Keep token values out of commits.
+
+The command exits unsuccessfully for missing configuration, network failures,
+HTTP failures, or Telegram API errors. It has a 15-second HTTP timeout and does
+not retry. It does not print the token or raw HTTP errors/responses.
