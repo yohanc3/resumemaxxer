@@ -1,6 +1,5 @@
 package jobposting
 
-
 type Listing struct {
 	Title       string   	`json:"title"`
 	URL         string  	`json:"url"`

@@ -58,20 +58,24 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 	rows, err := tx.QueryContext(ctx, `
 		WITH selected_jobs AS (
-			SELECT r.id
+			SELECT id,  j.job_posting_text, user_id, retries, status
 			FROM resume_generation_queue AS r
 			JOIN job_postings j ON j.id = r.job_posting_id
-			WHERE r.status = 'enqueued' AND j.formatted_description IS NOT NULL
+			WHERE 
+				r.status = "enqueued" AND job_postings.formatted_description IS NOT NULL
+				OR
+				r.status = "completed_resume"
 			ORDER BY r.created_at
 			LIMIT 3
 			FOR UPDATE OF r SKIP LOCKED
 		)
-		UPDATE resume_generation_queue AS queue_job 
-		SET status = 'processing_resume'
-		FROM selected_jobs
-		WHERE queue_job.id = selected_jobs.id
-		RETURNING queue_job.id, queue_job.job_posting_id, queue_job.user_id, queue_job.company_name, 
-				  queue_job.retries, queue_job.status, queue_job.created_at, queue_job.fulfilled_at;
+
+		UPDATE resume_generation_queue
+		SET status = CASE
+			WHEN status = "enqueued" THEN "processing_resume"
+			WHEN status = "completed_resume" THEN "delivering"
+		END
+		RETURNING selected_jobs
 	`)
 
 	if err != nil {
@@ -84,8 +88,8 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 		q := &resumebuilder.QueueJob{}
 
-		err := rows.Scan(&q.ID, &q.JobPostingID, &q.UserID, &q.CompanyName,
-			&q.Retries, &q.Status, &q.CreatedAt, &q.FulfilledAt)
+		err := rows.Scan(&q.ID, &q.JobPostingID, &q.JobPostingDescription, &q.UserID, 
+			&q.Retries, &q.Status)
 
 		if err != nil {
 			slog.Log(ctx, slog.LevelError, fmt.Sprintf("error when scanning job from resume_queue_jobs table. %v", err.Error()))
@@ -133,16 +137,15 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 	return nil
 }
 
-func (j *jobDelegator) HandleJob(ctx context.Context,q *resumebuilder.QueueJob) {
+func (j *jobDelegator) HandleJob(ctx context.Context, q *resumebuilder.QueueJob) {
 
 	slog.Log(ctx, slog.LevelInfo, "handling job", slog.String("queue job data: ", fmt.Sprintf("%+v", q)))
 	switch q.Status {
-	case "processing_resume":
+	case "enqueued":
+		j.resumeBuilder.CreateResume(ctx, q)	
+		
+	case "":
 		return
-		// 'completed_resume',
-		// 'delivering',
-		// 'delivered',
-		// 'failed')
 	}
 }
 
