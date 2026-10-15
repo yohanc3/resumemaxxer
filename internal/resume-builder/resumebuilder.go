@@ -10,25 +10,24 @@ import (
 )
 
 type QueueJob struct {
-	ID           string
-	JobPostingID string
-	UserID       string
-	CompanyName  string
-	Retries      int
-	Status       string
-	CreatedAt    time.Time 
-	FulfilledAt  sql.NullTime
+	ID                    string
+	JobPostingID          string
+	JobPostingDescription string
+	UserID                string
+	Retries               int
+	Status                string
 }
 
 type ResumeBuilder struct {
-	db      *sql.DB
-	storage objectstorage.ObjectStorage 
+	db            *sql.DB
+	storage       objectstorage.ObjectStorage
+	fetchInterval time.Duration
 }
 
 func NewResumeBuilder(db *sql.DB, storage objectstorage.ObjectStorage) ResumeBuilder {
 	return ResumeBuilder{db: db, storage: storage}
 }
 
-func (r *ResumeBuilder) CreateResume(context context.Context, queuejob *QueueJob) error {
-	return errors.New("resume generation not implemented") 
+func (r *ResumeBuilder) CreateResume(ctx context.Context, queuejob *QueueJob) error {
+	return errors.New("resume generation not implemented")
 }

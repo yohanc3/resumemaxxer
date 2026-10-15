@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,13 +18,14 @@ import (
 )
 
 type Observer struct {
-	interval time.Duration
-	url      string
-	db		 *sql.DB
+	interval           time.Duration
+	url                string
+	db                 *sql.DB
+	lastSeenJobPosting *jobposting.Listing
 }
 
 func NewObserver(interval time.Duration, url string, db *sql.DB) *Observer {
-	return &Observer{interval: interval, url: url, db: db}
+	return &Observer{interval: interval, url: url, db: db, lastSeenJobPosting: nil}
 }
 
 func (o *Observer) Watch(ctx context.Context) error {
@@ -35,12 +37,12 @@ func (o *Observer) Watch(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-			
+
 		case <-ticker.C:
 			if err := o.fetchAndUpdateListings(ctx); err != nil {
 				slog.Log(ctx, slog.LevelError, "error when fetching or processed listings.",
-						 slog.String("error", err.Error()),
-						)
+					slog.String("error", err.Error()),
+				)
 			} else {
 				slog.Log(ctx, slog.LevelInfo, "successfully fetched and processed listings.")
 			}
@@ -49,12 +51,11 @@ func (o *Observer) Watch(ctx context.Context) error {
 
 }
 
-
-// Fetches new listings, and process them by pushing new listings into job queue 
-// and listings table. Not the best naming convention, but didn't really have 
+// Fetches new listings, and process them by pushing new listings into job queue
+// and listings table. Not the best naming convention, but didn't really have
 // anything better in mind :p
 func (o *Observer) fetchAndUpdateListings(ctx context.Context) error {
-	
+
 	listings, err := o.fetchListings(ctx)
 	if err != nil {
 		return err
@@ -63,7 +64,7 @@ func (o *Observer) fetchAndUpdateListings(ctx context.Context) error {
 	if len(listings) == 0 {
 		return nil
 	}
-	
+
 	fiveMinuesAgo := time.Now().Add(-48 * time.Hour)
 
 	var filtered []*jobposting.Listing
@@ -121,6 +122,33 @@ func (o *Observer) fetchListings(ctx context.Context) ([]*jobposting.Listing, er
 		return nil, fmt.Errorf("error when decoding listings.json into listings object. %w", err)
 	}
 
+	sort.Slice(listings, func(i, j int) bool {
+		return listings[i].DatePosted > listings[j].DatePosted
+	})
+	
+	// last seen job posting time comes from either last recorded one or an hour before
+	// now
+	var cutoffDatePosted int64
+	
+	if o.lastSeenJobPosting == nil {
+		cutoffDatePosted = time.Now().Add(-time.Hour * 48).Unix()
+	} else { cutoffDatePosted = o.lastSeenJobPosting.DatePosted }
+	
+	// filter out listings by date posted to keep only ones posted after the cutoff
+	// date (either an hour ago from now, or last recorded job posting date) 
+	n := 0
+	for _, listing := range listings {
+		if listing.DatePosted > cutoffDatePosted {
+			listings[n] = listing
+			n++
+		}
+	}
+	listings = listings[:n]
+	
+	if len(listings) > 0 {
+		o.lastSeenJobPosting = listings[0]
+	} else { o.lastSeenJobPosting = &jobposting.Listing{DatePosted: time.Now().Unix()} }
+
 	return listings, nil
 }
 
@@ -135,46 +163,46 @@ func (o *Observer) processListings(ctx context.Context, listings []*jobposting.L
 	// Slightly adapted from - https://stackoverflow.com/a/48070387
 
 	// Holds list of values placeholders ($1, $2, $3 ...). 15 values per row.
-    valueStrings := make([]string, 0, len(listings))
+	valueStrings := make([]string, 0, len(listings))
 
 	// Holds list of arguments to be inserted in placeholders. 15 values per row.
-    valueArgs := make([]interface{}, 0, len(listings) * 15)
+	valueArgs := make([]interface{}, 0, len(listings)*15)
 
-    i := 0
+	i := 0
 	for _, listing := range listings {
 
 		// For each listing, store a new set of value placeholders
 		// It allocates placeholder numbers based on the listing number
 		// i.e., first iteration adds placeholders 1-15, second iteration 16-30, etc,
 		// so that the appended arguments match the correct listing
-        valueStrings = append(valueStrings, fmt.Sprintf(`
+		valueStrings = append(valueStrings, fmt.Sprintf(`
 		($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)
 		`, i*15+1, i*15+2, i*15+3, i*15+4, i*15+5, i*15+6, i*15+7, i*15+8, i*15+9, i*15+10, i*15+11, i*15+12, i*15+13, i*15+14, i*15+15))
 
 		// For each listing, store its 15 args. Add them in the same order than expected
 		// in the sql statement.
-        valueArgs = append(valueArgs, listing.ID)
-        valueArgs = append(valueArgs, listing.Source)
-        valueArgs = append(valueArgs, listing.Category)
-        valueArgs = append(valueArgs, listing.CompanyName)
-        valueArgs = append(valueArgs, listing.Title)
-        valueArgs = append(valueArgs, listing.Active)
-        valueArgs = append(valueArgs, pq.Array(listing.Terms))
-        valueArgs = append(valueArgs, time.Unix(listing.DateUpdated, 0).UTC())
-        valueArgs = append(valueArgs, time.Unix(listing.DatePosted, 0).UTC())
-        valueArgs = append(valueArgs, listing.URL)
-        valueArgs = append(valueArgs, pq.Array(listing.Locations))
-        valueArgs = append(valueArgs, listing.CompanyURL)
-        valueArgs = append(valueArgs, listing.IsVisible)
-        valueArgs = append(valueArgs, listing.Sponsorship)
-        valueArgs = append(valueArgs, pq.Array(listing.Degrees))
-        i++
-    }
-	
+		valueArgs = append(valueArgs, listing.ID)
+		valueArgs = append(valueArgs, listing.Source)
+		valueArgs = append(valueArgs, listing.Category)
+		valueArgs = append(valueArgs, listing.CompanyName)
+		valueArgs = append(valueArgs, listing.Title)
+		valueArgs = append(valueArgs, listing.Active)
+		valueArgs = append(valueArgs, pq.Array(listing.Terms))
+		valueArgs = append(valueArgs, time.Unix(listing.DateUpdated, 0).UTC())
+		valueArgs = append(valueArgs, time.Unix(listing.DatePosted, 0).UTC())
+		valueArgs = append(valueArgs, listing.URL)
+		valueArgs = append(valueArgs, pq.Array(listing.Locations))
+		valueArgs = append(valueArgs, listing.CompanyURL)
+		valueArgs = append(valueArgs, listing.IsVisible)
+		valueArgs = append(valueArgs, listing.Sponsorship)
+		valueArgs = append(valueArgs, pq.Array(listing.Degrees))
+		i++
+	}
+
 	// Upserts into job_postings table, inserts into the resume generation queue,
 	// and it also inserts into the job description queue for separate worker
 	// (aka job_description_fetcher) to fetch the job description
-    stmt := fmt.Sprintf(`
+	stmt := fmt.Sprintf(`
 		WITH upserted_resources AS ( 
 			INSERT INTO job_postings (id, source, category, company_name, title,
 			active, terms, date_updated, date_posted, url, locations, company_url,
@@ -219,9 +247,9 @@ func (o *Observer) processListings(ctx context.Context, listings []*jobposting.L
 		FROM inserted_jobs
 		ON CONFLICT (job_posting_id) DO NOTHING;
 		`, strings.Join(valueStrings, ","))
-	
+
 	// Apply statement, and exclude the result.
-    _, err := o.db.ExecContext(ctx, stmt, valueArgs...)
+	_, err := o.db.ExecContext(ctx, stmt, valueArgs...)
 
 	if err != nil {
 		// Error out for now. Should notify dev later.
