@@ -29,7 +29,7 @@ services:
         condition: service_completed_successfully
     environment:
       <<: *x-db-env
-        
+    restart: unless-stopped
 
   db:
     container_name: db
@@ -81,6 +81,7 @@ services:
         condition: service_completed_successfully
     networks:
       - db
+    restart: unless-stopped
 
   job-description-fetcher:
     build:
@@ -96,6 +97,7 @@ services:
     depends_on:
       db_setup:
         condition: service_completed_successfully
+    restart: unless-stopped
         
 networks:
   db:
