@@ -31,7 +31,11 @@ func main(){
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)	
 	defer stop()
 
-	jobPostingDescriptionFetcher := jobpostingdescriptionfetcher.NewJobDescriptionFetcher(db, SEMAPHORE_LENGTH)
+	jobPostingDescriptionFetcher, err := jobpostingdescriptionfetcher.NewJobDescriptionFetcher(db, SEMAPHORE_LENGTH)
+	if err != nil {
+		slog.ErrorContext(ctx, "error when creating job description scraper", slog.String("error", err.Error()))
+		return
+	}
 
 	if err := jobPostingDescriptionFetcher.Start(ctx); err != nil {
 		slog.ErrorContext(ctx, "error when job posting description fetcher was running", slog.String("error", err.Error()))
