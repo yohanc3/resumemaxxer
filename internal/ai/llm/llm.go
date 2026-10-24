@@ -7,7 +7,7 @@ import (
 type LLM interface {
 	// Modifies user's resume experience/project descriptions and skills according to a job description
 	//
-	// It returns a [ResumeElements] object, which holds the new resume's information 
+	// It returns a [ResumeElements] object, which holds the new resume's information
 	CreateResumeElements(contex context.Context, resumeElements ResumeElements, jobDescription string, prompt string) (ResumeElements, error)
 
 	// Parses a resume in string format into a structured format ([ResumeElements])
@@ -50,11 +50,15 @@ type Experience struct {
 }
 
 type Bulletpoint struct {
-	Content string   // "Accomplished [X] as measured by [Y], by doing [Z]"
-	Bolded  []string // ["Go/gRPC", "AWS Bedrock"]
+	Segments []TextSegment // "Accomplished [X] as measured by [Y], by doing [Z]"name
+}
+
+type TextSegment struct {
+	Text string
+	Bold bool
 }
 
 type Projects struct {
-	Projects             []string
-	ProjectsBulletpoints map[string][]string
+	ProjectName  string
+	Bulletpoints []string
 }
