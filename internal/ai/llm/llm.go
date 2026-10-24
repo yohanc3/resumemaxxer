@@ -8,10 +8,10 @@ type LLM interface {
 	// Modifies user's resume experience/project descriptions and skills according to a job description
 	//
 	// It returns a [ResumeElements] object, which holds the new resume's information
-	CreateResumeElements(contex context.Context, resumeElements ResumeElements, jobDescription string, prompt string) (ResumeElements, error)
+	CreateResumeElements(ctx context.Context, resumeElements ResumeElements, jobDescription string, prompt string) (ResumeElements, error)
 
 	// Parses a resume in string format into a structured format ([ResumeElements])
-	ParseResume(context context.Context, resume string, prompt string) (ResumeElements, error)
+	ParseResume(ctx context.Context, resume string, prompt string) (ResumeElements, error)
 }
 
 type ResumeElements struct {
@@ -45,20 +45,22 @@ type Experience struct {
 	Title        string
 	StartDate    string // [Month] [Year]
 	EndDate      string // [Month] [Year]
-	Location     string
+	Location     string // [City, State] or [City, Country]
 	Bulletpoints []string
-}
-
-type Bulletpoint struct {
-	Segments []TextSegment // "Accomplished [X] as measured by [Y], by doing [Z]"name
-}
-
-type TextSegment struct {
-	Text string
-	Bold bool
 }
 
 type Projects struct {
 	ProjectName  string
 	Bulletpoints []string
 }
+
+type Bulletpoint struct {
+	Segments []TextSegment
+}
+
+// Allows for text segments to be bolded, optionally (think metrics/skills).
+type TextSegment struct {
+	Text string
+	Bold bool
+}
+
