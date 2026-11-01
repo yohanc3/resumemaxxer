@@ -8,7 +8,7 @@ import (
 )
 
 type ObjectStorage interface {
-	Put(file []byte, filename string) (string, error)
+	Put(file *os.File, filename string) (string, error)
 	Get(filename string) (string, error)
 	Delete(filename string) (string, error)
 }
