@@ -19,7 +19,7 @@ type Config struct {
 	R2AccessKeyID            string `env:"R2_ACCESS_KEY_ID"`
 	DelegatorIntervalSeconds int    `env:"DELEGATOR_INTERVAL_SECONDS"`
 	DeepSeekAPIKey           string `env:"DEEPSEEK_API_KEY"`
-	DeepSeekAPIURL           string `env:"DEEPSEEK_API_UR:"`
+	DeepSeekAPIURL           string `env:"DEEPSEEK_API_URL"`
 }
 
 func LoadConfig() error {
