@@ -10,7 +10,8 @@ import (
 
 	"github.com/yohanc3/resumemaxxer/internal/config"
 	jobdelegator "github.com/yohanc3/resumemaxxer/internal/job-delegator"
-	resumebuilder "github.com/yohanc3/resumemaxxer/internal/resume-builder"
+	"github.com/yohanc3/resumemaxxer/internal/llm/deepseek"
+	resumehandler "github.com/yohanc3/resumemaxxer/internal/resume-handler"
 	"github.com/yohanc3/resumemaxxer/internal/storage/db"
 	objectstorage "github.com/yohanc3/resumemaxxer/internal/storage/objectStorage"
 )
@@ -37,7 +38,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	resumebuilder := resumebuilder.NewResumeBuilder(db, storage)
+	deepseekClient, err := deepseek.NewDeepseekClient(config.Cfg.DeepSeekAPIURL, config.Cfg.DeepSeekAPIKey) 
+	if err != nil {
+		slog.ErrorContext(ctx, "error when creating deepseek client", slog.String("error", err.Error()))
+	}
+
+	resumebuilder := resumehandler.NewResumeHandler(db, storage, deepseekClient)
 
 	jobDelegator := jobdelegator.NewJobDelegator(db, time.Second * time.Duration(config.Cfg.DelegatorIntervalSeconds), &resumebuilder, SEMAPHORE_LENGTH)
 

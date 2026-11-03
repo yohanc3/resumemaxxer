@@ -20,6 +20,8 @@ type Config struct {
 	DelegatorIntervalSeconds int    `env:"DELEGATOR_INTERVAL_SECONDS"`
 	TelegramApiKey           string `env:"TELEGRAM_API_KEY"`
 	TelegramWebhookURL       string `env:"TELEGRAM_WEBHOOK_URL"`
+	DeepSeekAPIKey           string `env:"DEEPSEEK_API_KEY"`
+	DeepSeekAPIURL           string `env:"DEEPSEEK_API_URL"`
 }
 
 func LoadConfig() error {
