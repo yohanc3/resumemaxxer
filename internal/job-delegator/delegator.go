@@ -8,18 +8,18 @@ import (
 	"sync"
 	"time"
 
-	resumebuilder "github.com/yohanc3/resumemaxxer/internal/resume-builder"
+	resumehandler "github.com/yohanc3/resumemaxxer/internal/resume-handler"
 )
 
 type jobDelegator struct {
 	db            *sql.DB
 	interval      time.Duration
-	resumeBuilder *resumebuilder.ResumeBuilder
+	resumeBuilder *resumehandler.ResumeHandler
 	wg            sync.WaitGroup
 	sem           chan struct{}
 }
 
-func NewJobDelegator(db *sql.DB, interval time.Duration, resumeBuilder *resumebuilder.ResumeBuilder, SEMAPHORE_LENGTH int) *jobDelegator {
+func NewJobDelegator(db *sql.DB, interval time.Duration, resumeBuilder *resumehandler.ResumeHandler, SEMAPHORE_LENGTH int) *jobDelegator {
 	return &jobDelegator{
 		db:            db,
 		interval:      interval,
@@ -82,11 +82,11 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 		return fmt.Errorf("error when getting jobs from resume_queue_jobs table. %w", err)
 	}
 
-	var queueJobs []*resumebuilder.QueueJob
+	var queueJobs []*resumehandler.QueueJob
 
 	for rows.Next() {
 
-		q := &resumebuilder.QueueJob{}
+		q := &resumehandler.QueueJob{}
 
 		err := rows.Scan(&q.ID, &q.JobPostingID, &q.JobPostingDescription, &q.UserID, 
 			&q.Retries, &q.Status)
@@ -118,7 +118,7 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 		j.sem <- struct{}{}
 		j.wg.Add(1)
 
-		go func(q *resumebuilder.QueueJob) {
+		go func(q *resumehandler.QueueJob) {
 
 			// Queue up task through our semaphore
 			defer j.wg.Done()
@@ -137,19 +137,18 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 	return nil
 }
 
-func (j *jobDelegator) HandleJob(ctx context.Context, q *resumebuilder.QueueJob) {
+func (j *jobDelegator) HandleJob(ctx context.Context, q *resumehandler.QueueJob) {
 
 	slog.Log(ctx, slog.LevelInfo, "handling job", slog.String("queue job data: ", fmt.Sprintf("%+v", q)))
 	switch q.Status {
 	case "enqueued":
-		j.resumeBuilder.CreateResume(ctx, q)	
-		
+			
 	case "":
 		return
 	}
 }
 
-func (j *jobDelegator) OnJobError(ctx context.Context, q *resumebuilder.QueueJob, jobError error) {
+func (j *jobDelegator) OnJobError(ctx context.Context, q *resumehandler.QueueJob, jobError error) {
 	// if job errored out >3 times, insert into dead letter queue and alert me
 	// else, mark it as not_processed
 	// if anything fails, just log the queue object and the error itself

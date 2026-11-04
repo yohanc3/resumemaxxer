@@ -33,10 +33,14 @@ func main() {
 	}
 	defer db.Close()
 
-	storage := objectstorage.NewR2(config.Cfg.R2BucketName, config.Cfg.R2AccessKeyID, config.Cfg.R2SecretAccessKey, config.Cfg.R2AccountID)
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	storage, err := objectstorage.NewR2(ctx, config.Cfg.R2BucketName, config.Cfg.R2AccessKeyID, config.Cfg.R2SecretAccessKey, config.Cfg.R2AccountID)
+	if err != nil {
+		slog.Error("error when getting r2 objectstorage object", slog.String("error", err.Error()))
+		return
+	}
 
 	deepseekClient, err := deepseek.NewDeepseekClient(config.Cfg.DeepSeekAPIURL, config.Cfg.DeepSeekAPIKey) 
 	if err != nil {
