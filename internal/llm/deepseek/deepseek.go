@@ -39,7 +39,7 @@ func (d *DeepseekClient) CreateResumeElements(ctx context.Context, resumeElement
 func (d *DeepseekClient) GetResumeElements(ctx context.Context, resume string, prompt string) (*llm.ResumeElements, error) {
 
 	resp, err := d.client.Responses.New(ctx, responses.ResponseNewParams{
-		Input: responses.ResponseNewParamsInputUnion{OfString: openai.String(prompt)},
+		Input: responses.ResponseNewParamsInputUnion{OfString: openai.String(prompt + "\n\nResume text:\n" + resume)},
 		Model: "deepseek-flash",
 		Text: responses.ResponseTextConfigParam{
 			Format: responses.ResponseFormatTextConfigUnionParam{
