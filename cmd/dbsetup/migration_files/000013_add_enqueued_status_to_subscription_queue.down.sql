@@ -1,0 +1,2 @@
+ALTER TABLE subscription_queue
+DROP CONSTRAINT subscription_queue_status_check;
