@@ -58,24 +58,32 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 	rows, err := tx.QueryContext(ctx, `
 		WITH selected_jobs AS (
-			SELECT id,  j.job_posting_text, user_id, retries, status
+			SELECT r.id, j.formatted_description, r.user_id, r.retries, r.status
 			FROM resume_generation_queue AS r
 			JOIN job_postings j ON j.id = r.job_posting_id
 			WHERE 
-				r.status = "enqueued" AND job_postings.formatted_description IS NOT NULL
+				(r.status = 'enqueued' AND j.formatted_description IS NOT NULL)
 				OR
-				r.status = "completed_resume"
+				r.status = 'completed_resume'
 			ORDER BY r.created_at
 			LIMIT 3
 			FOR UPDATE OF r SKIP LOCKED
 		)
 
-		UPDATE resume_generation_queue
+		UPDATE resume_generation_queue as r
 		SET status = CASE
-			WHEN status = "enqueued" THEN "processing_resume"
-			WHEN status = "completed_resume" THEN "delivering"
+			WHEN r.status = 'enqueued' THEN 'processing_resume'
+			WHEN r.status = 'completed_resume' THEN 'delivering'
 		END
-		RETURNING selected_jobs
+		FROM selected_jobs
+		WHERE r.id = selected_jobs.id
+		RETURNING  
+ 			r.id, 
+			r.job_posting_id,
+			selected_jobs.formatted_description, 
+			r.user_id, 
+			r.retries, 
+			r.status;
 	`)
 
 	if err != nil {
@@ -88,7 +96,7 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 		q := &resumehandler.QueueJob{}
 
-		err := rows.Scan(&q.ID, &q.JobPostingID, &q.JobPostingDescription, &q.UserID, 
+		err := rows.Scan(&q.ID, &q.JobPostingID, &q.JobPostingDescription, &q.UserID,
 			&q.Retries, &q.Status)
 
 		if err != nil {
@@ -133,16 +141,16 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 	j.wg.Wait()
 
-	slog.Log(ctx, slog.LevelInfo, fmt.Sprintf("successfully enqueued %v jobs: %+v", len(queueJobs), queueJobs))
+	slog.DebugContext(ctx, fmt.Sprintf("successfully enqueued %v jobs: %+v", len(queueJobs), queueJobs))
 	return nil
 }
 
 func (j *jobDelegator) HandleJob(ctx context.Context, q *resumehandler.QueueJob) {
 
-	slog.Log(ctx, slog.LevelInfo, "handling job", slog.String("queue job data: ", fmt.Sprintf("%+v", q)))
+	slog.Log(ctx, slog.LevelInfo, "handling job", slog.String("id: ", q.ID), slog.String("job posting id", q.JobPostingID), slog.String("status", q.Status), slog.String("retries", string(q.Retries)))
 	switch q.Status {
 	case "enqueued":
-			
+
 	case "":
 		return
 	}
