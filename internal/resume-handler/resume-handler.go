@@ -23,8 +23,8 @@ type ResumeHandler struct {
 	resumeLLM     llm.ResumeLLM
 }
 
-func NewResumeHandler(db *sql.DB, objectStorage objectstorage.ObjectStorage, llm llm.ResumeLLM) ResumeHandler {
-	return ResumeHandler{db: db, objectStorage: objectStorage, resumeLLM: llm}
+func NewResumeHandler(db *sql.DB, objectStorage objectstorage.ObjectStorage, llm llm.ResumeLLM) *ResumeHandler {
+	return &ResumeHandler{db: db, objectStorage: objectStorage, resumeLLM: llm}
 }
 
 func (r *ResumeHandler) CreateResume(ctx context.Context, queuejob *QueueJob, path string) error {
