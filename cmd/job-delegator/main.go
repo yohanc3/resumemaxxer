@@ -49,7 +49,7 @@ func main() {
 
 	resumebuilder := resumehandler.NewResumeHandler(db, storage, deepseekClient)
 
-	jobDelegator := jobdelegator.NewJobDelegator(db, time.Second * time.Duration(config.Cfg.DelegatorIntervalSeconds), &resumebuilder, SEMAPHORE_LENGTH)
+	jobDelegator := jobdelegator.NewJobDelegator(db, time.Second * time.Duration(config.Cfg.DelegatorIntervalSeconds), resumebuilder, SEMAPHORE_LENGTH)
 
 	if err := jobDelegator.Start(ctx); err != nil {
 		slog.Error("error when running job handler", slog.String("error", err.Error()))
