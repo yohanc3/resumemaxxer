@@ -15,7 +15,7 @@ import (
 )
 
 type ObjectStorage interface {
-	Put(ctx context.Context, fileBytes []byte, objectKey string, mimeType string) (string, string, error)
+	Put(ctx context.Context, fileBytes []byte, objectKey string, mimeType string) (string, error)
 	Get(filename string) (string, error)
 	Delete(filename string) (string, error)
 }
@@ -29,7 +29,7 @@ type R2 struct {
 }
 
 // Uploads a given file, with the given filename (string),
-func (o R2) Put(ctx context.Context, fileBytes []byte, objectKey string, mimeType string) (string, string, error) {
+func (o R2) Put(ctx context.Context, fileBytes []byte, objectKey string, mimeType string) (string, error) {
 	res, err := o.r2Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(o.bucketName),
 		Key:    aws.String(objectKey),
@@ -39,10 +39,10 @@ func (o R2) Put(ctx context.Context, fileBytes []byte, objectKey string, mimeTyp
 
 	var apiErr smithy.APIError
 	if errors.As(err, &apiErr) && apiErr != nil {
-		return "", "", fmt.Errorf("error when uploading file")
+		return "", fmt.Errorf("error when uploading file")
 	}
 
-	return aws.ToString(res.ETag), aws.ToString(res.VersionId), nil
+	return aws.ToString(res.ETag), nil
 }
 
 func (o R2) Get(filename string) (string, error) {
@@ -79,9 +79,9 @@ func newR2Client(ctx context.Context, accountID, accessKey, secretKey, bucketNam
 }
 
 // Given a user id, and user name, returns a fileName and a unique objectKey
-// The filename is formated as: "{Firstname}_{Lastname}_Resume"
-func CreateFileMetadata(userID string, userFirstName string, userLastName string) (string, string) {
-	fileName := fmt.Sprintf("%s_%s_Resume.pdf", userFirstName, userLastName)
-	objectKey := fmt.Sprintf("%s_%s_%s", "resumes", userID, rand.Text())
+// The filename is formated as: "{userID}_Resume"
+func CreateFileMetadata(userID string) (string, string) {
+	fileName := fmt.Sprintf("%s.pdf", userID)
+	objectKey := fmt.Sprintf("%s_%s", userID, rand.Text())
 	return fileName, objectKey
 }
