@@ -1,0 +1,1 @@
+ALTER TABLE subscribers ALTER COLUMN chat_id TYPE INTEGER;

@@ -18,7 +18,7 @@ func main() {
 	err := config.LoadConfig()
 	if err != nil {
 		slog.Error("Cannot load env variables. Exiting observer.", slog.String("error", err.Error()))
-		os.Exit(1)
+		return
 	}
 	
 	// DB setup
@@ -41,6 +41,7 @@ func main() {
 	
 	if err := obs.Watch(ctx); err != nil {
 		slog.Error("error when watching with observer", slog.String("error", err.Error()))
+		return
 	}
 
 }

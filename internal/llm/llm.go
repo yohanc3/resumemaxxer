@@ -16,7 +16,7 @@ type ResumeLLM interface {
 
 type ResumeElements struct {
 	Header     Header
-	Eduaction  Education
+	Education  Education
 	Experience []Experience
 	Projects   []Projects
 	Skills     map[string][]string

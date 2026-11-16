@@ -98,6 +98,31 @@ services:
       db_setup:
         condition: service_completed_successfully
     restart: unless-stopped
+
+  telegram_bot:
+    build:
+      context: .
+      dockerfile: docker/go/Dockerfile
+      args:
+        SERVICE: telegram 
+    environment:
+      DELEGATOR_INTERVAL_SECONDS: ${DELEGATOR_INTERVAL_SECONDS}
+
+      TELEGRAM_API_KEY: ${TELEGRAM_API_KEY}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      DEEPSEEK_API_URL: ${DEEPSEEK_API_URL}
+      <<: [*x-db-env, *x-r2-env]
+
+    ports:
+      - "127.0.0.1:8443:8443"
+
+    depends_on:
+      db_setup:
+        condition: service_completed_successfully
+    networks:
+      - db
+    restart: unless-stopped
         
 networks:
   db:

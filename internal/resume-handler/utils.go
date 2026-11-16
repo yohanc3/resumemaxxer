@@ -1,22 +1,14 @@
-package resumehandler 
+package resumehandler
 
 import (
 	"bytes"
-	"fmt"
-	"io"
-	"os"
 	"strings"
 
 	"github.com/ledongthuc/pdf"
 )
 
 // Extracts pdf text based on a path.
-func ExtractPDFText(file *os.File) (string, error){
-
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		return "", fmt.Errorf("error when reading bytes from file: %w", err)
-	}
+func ExtractPDFText(fileBytes []byte) (string, error){
 
 	reader, err := pdf.NewReader(bytes.NewReader(fileBytes), int64(len(fileBytes)))
 	if err != nil {

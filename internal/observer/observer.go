@@ -44,7 +44,7 @@ func (o *Observer) Watch(ctx context.Context) error {
 					slog.String("error", err.Error()),
 				)
 			} else {
-				slog.Log(ctx, slog.LevelInfo, "successfully fetched and processed listings.")
+				slog.DebugContext(ctx, "successfully fetched and processed listings.")
 			}
 		}
 	}
