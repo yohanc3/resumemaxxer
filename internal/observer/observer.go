@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -230,32 +231,38 @@ func (o *Observer) processListings(ctx context.Context, listings []*jobposting.L
 			OR job_postings.date_updated IS DISTINCT FROM EXCLUDED.date_updated
 			RETURNING id, url, company_name 
 		),
+		
+		active_subscribers AS (
+			SELECT subscriber_id FROM parsed_resumes 
+			WHERE parsed_resume IS NOT NULL
+		),
 
 		inserted_jobs AS (
 			INSERT INTO resume_generation_queue (
-				job_posting_id, job_posting_url, company_name, user_id 
+				job_posting_id, job_posting_url, company_name, subscriber_id 
 			)
-			SELECT id, url, company_name, 'testid' 
+			SELECT id, url, company_name, active_subscribers.subscriber_id
 			FROM upserted_resources
-			ON CONFLICT (user_id, job_posting_id)
+			CROSS JOIN active_subscribers
+			ON CONFLICT (subscriber_id, job_posting_id)
 			DO NOTHING
 			RETURNING job_posting_id
 		)
 
 		INSERT INTO job_description_fetch_queue (job_posting_id, status)
-		SELECT job_posting_id, 'enqueued'
-		FROM inserted_jobs
+		SELECT id, 'enqueued'
+		FROM upserted_resources 
 		ON CONFLICT (job_posting_id) DO NOTHING;
 		`, strings.Join(valueStrings, ","))
 
 	// Apply statement, and exclude the result.
 	_, err := o.db.ExecContext(ctx, stmt, valueArgs...)
-
 	if err != nil {
 		// Error out for now. Should notify dev later.
 		return fmt.Errorf("error when inserting batch of jobs. %w", err)
 	}
 
+	slog.InfoContext(ctx, "observer batch processed.", slog.String("listings fetched", strconv.Itoa(len(listings))))
 	return nil
 
 }
