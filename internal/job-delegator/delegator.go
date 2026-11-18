@@ -58,13 +58,11 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 	rows, err := tx.QueryContext(ctx, `
 		WITH selected_jobs AS (
-			SELECT r.id, j.formatted_description, r.user_id, r.retries, r.status
+			SELECT r.id, j.formatted_description, r.subscriber_id, r.retries, r.status
 			FROM resume_generation_queue AS r
 			JOIN job_postings j ON j.id = r.job_posting_id
 			WHERE 
 				(r.status = 'enqueued' AND j.formatted_description IS NOT NULL)
-				OR
-				r.status = 'completed_resume'
 			ORDER BY r.created_at
 			LIMIT 3
 			FOR UPDATE OF r SKIP LOCKED
@@ -73,7 +71,6 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 		UPDATE resume_generation_queue as r
 		SET status = CASE
 			WHEN r.status = 'enqueued' THEN 'processing_resume'
-			WHEN r.status = 'completed_resume' THEN 'delivering'
 		END
 		FROM selected_jobs
 		WHERE r.id = selected_jobs.id
@@ -81,7 +78,7 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
  			r.id, 
 			r.job_posting_id,
 			selected_jobs.formatted_description, 
-			r.user_id, 
+			r.subscriber_id, 
 			r.retries, 
 			r.status;
 	`)
@@ -141,13 +138,13 @@ func (j *jobDelegator) DelegateJobs(ctx context.Context) error {
 
 	j.wg.Wait()
 
-	slog.DebugContext(ctx, fmt.Sprintf("successfully enqueued %v jobs: %+v", len(queueJobs), queueJobs))
+	slog.InfoContext(ctx, fmt.Sprintf("successfully enqueued %v jobs", len(queueJobs)))
 	return nil
 }
 
 func (j *jobDelegator) HandleJob(ctx context.Context, q *resumehandler.QueueJob) {
 
-	slog.Log(ctx, slog.LevelInfo, "handling job", slog.String("id: ", q.ID), slog.String("job posting id", q.JobPostingID), slog.String("status", q.Status), slog.String("retries", string(q.Retries)))
+	slog.InfoContext(ctx, "resume generation job claimed", slog.String("queue job id", q.ID), slog.String("job posting id", q.JobPostingID), slog.String("status", q.Status), slog.String("retries", string(q.Retries)))
 	switch q.Status {
 	case "enqueued":
 
