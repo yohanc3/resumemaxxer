@@ -13,5 +13,6 @@ CREATE TABLE IF NOT EXISTS job_postings(
     company_url TEXT,
     is_visible BOOLEAN DEFAULT false,
     sponsorship TEXT,
-    degrees TEXT[]
+    degrees TEXT[],
+    formatted_description TEXT
 );

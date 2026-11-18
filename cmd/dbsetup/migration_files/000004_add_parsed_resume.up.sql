@@ -3,5 +3,6 @@ CREATE TABLE IF NOT EXISTS parsed_resumes (
     subscriber_id UUID NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     parsed_resume JSONB,
-    FOREIGN KEY (subscriber_id) REFERENCES subscribers(id)
+    FOREIGN KEY (subscriber_id) REFERENCES subscribers(id),
+    CONSTRAINT unique_sub_id UNIQUE (subscriber_id)
 );

@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS subscribers (
     id UUID PRIMARY KEY,
-    chat_id INTEGER NOT NULL,
+    chat_id BIGINT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
