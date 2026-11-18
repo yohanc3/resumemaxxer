@@ -54,7 +54,6 @@ func main() {
 		slog.Error("error when starting up telegram bot", slog.String("error", err.Error()))
 		return
 	}
-	bot.Debug = true
 	telegramHandler := telegram.NewTelegramHandler(db, r2, bot, resHandler)
 
 	path := "/" + rand.Text()
