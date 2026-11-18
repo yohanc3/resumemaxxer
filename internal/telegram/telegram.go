@@ -65,8 +65,11 @@ func (t *TelegramHandler) Run(ctx context.Context, updatesChannel tgbotapi.Updat
 			if err := t.handleSignups(ctx); err != nil {
 				slog.ErrorContext(ctx, "error processing signups", slog.String("error", err.Error()))
 			}
-		}
 
+			if err := t.handleAlerts(ctx); err != nil {
+				slog.ErrorContext(ctx, "error when handling alerts", slog.String("error", err.Error()))
+			}
+		}
 	}
 }
 
@@ -330,5 +333,9 @@ func (t *TelegramHandler) checkpoint(ctx context.Context, s *SignupQueueJob) err
 		return err
 	}
 
+	return nil
+}
+
+func (t *TelegramHandler) handleAlerts(ctx context.Context) error {
 	return nil
 }
